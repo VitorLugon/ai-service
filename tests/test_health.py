@@ -5,8 +5,12 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_health_check_returns_ok() -> None:
+def test_health_check_returns_service_status() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {
+        "status": "ok",
+        "service": "AI Service",
+        "version": "0.1.0",
+    }

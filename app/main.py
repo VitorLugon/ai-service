@@ -1,17 +1,26 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 
-app = FastAPI(
-    title="AI Service",
-    description="Serviço responsável pelas funcionalidades de inteligência artificial.",
-    version="0.1.0",
-)
+from app.api.router import api_router
+from app.core.config import get_settings
 
 
-@app.get(
-    "/health",
-    status_code=status.HTTP_200_OK,
-    tags=["Health"],
-)
-async def health_check() -> dict[str, str]:
-    """Verifica se o processo da aplicação está funcionando."""
-    return {"status": "ok"}
+def create_application() -> FastAPI:
+    """Cria e configura a aplicação FastAPI."""
+
+    settings = get_settings()
+
+    application = FastAPI(
+        title=settings.app_name,
+        description=(
+            "Serviço responsável pelas funcionalidades "
+            "de inteligência artificial."
+        ),
+        version=settings.app_version,
+    )
+
+    application.include_router(api_router)
+
+    return application
+
+
+app = create_application()
