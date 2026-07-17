@@ -1,13 +1,14 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app.core.config import Settings, get_settings
 from app.main import app
 
-client = TestClient(app)
 
-
-def test_readiness_check_returns_ready() -> None:
+def test_readiness_check_returns_ready(
+    client: TestClient,
+) -> None:
     response = client.get("/ready")
 
     assert response.status_code == status.HTTP_200_OK
@@ -22,16 +23,20 @@ def test_readiness_check_returns_ready() -> None:
     }
 
 
-def test_readiness_check_returns_service_unavailable() -> None:
-    def override_get_settings() -> Settings:
-        return Settings(app_name="")
+def test_readiness_check_returns_service_unavailable(
+    client: TestClient,
+) -> None:
+    def override_get_invalid_settings() -> Settings:
+        return Settings(
+            app_name="",
+            app_version="0.1.0",
+            environment="test",
+            internal_api_key=SecretStr("test-internal-api-key"),
+        )
 
-    app.dependency_overrides[get_settings] = override_get_settings
+    app.dependency_overrides[get_settings] = override_get_invalid_settings
 
-    try:
-        response = client.get("/ready")
-    finally:
-        app.dependency_overrides.clear()
+    response = client.get("/ready")
 
     assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert response.json() == {

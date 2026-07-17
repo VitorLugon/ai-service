@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +16,7 @@ class Settings(BaseSettings):
     app_name: str = "AI Service"
     app_version: str = "0.1.0"
     environment: str = "development"
+    internal_api_key: SecretStr = SecretStr("development-only-key")
 
 
 @lru_cache
