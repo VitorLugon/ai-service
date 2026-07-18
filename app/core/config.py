@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     internal_api_key: SecretStr = SecretStr("development-only-key")
 
+    openai_api_key: SecretStr | None = None
+    openai_model: str = "gpt-5.5"
+
 
 @lru_cache
 def get_settings() -> Settings:
