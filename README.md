@@ -1,57 +1,122 @@
 # AI Service
 
-Serviço em Python e FastAPI responsável pelas funcionalidades de inteligência artificial e integração com aplicações internas.
+API independente construída com Python e FastAPI para fornecer funcionalidades de inteligência artificial a aplicações internas.
 
-## Endpoints
+O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizado por outros projetos.
 
-| Método | Endpoint | Autenticação | Descrição |
-|---|---|---|---|
-| GET | `/health` | Não | Verifica se o processo da aplicação está funcionando |
-| GET | `/ready` | Não | Verifica se a aplicação está pronta para receber requisições |
-| GET | `/internal/ping` | API Key | Valida a autenticação entre serviços internos |
+## Funcionalidades atuais
+
+- endpoint de saúde da aplicação;
+- endpoint de prontidão;
+- configuração por variáveis de ambiente;
+- autenticação interna por API Key;
+- documentação OpenAPI;
+- testes automatizados;
+- cobertura mínima de testes;
+- lint e formatação com Ruff;
+- análise estática com mypy;
+- integração contínua com GitHub Actions.
+
+## Tecnologias
+
+- Python 3.12
+- FastAPI
+- Pydantic
+- pydantic-settings
+- pytest
+- pytest-cov
+- Ruff
+- mypy
+- GitHub Actions
+
+## Arquitetura
+
+```text
+app/
+├── api/          # Rotas e configuração HTTP
+├── core/         # Configurações e segurança
+├── schemas/      # Contratos Pydantic
+├── services/     # Operações e regras da aplicação
+└── main.py       # Criação da aplicação
+```
+
+A descrição completa está em [`docs/architecture.md`](docs/architecture.md).
+
+## Requisitos
+
+- Python 3.12
+- Git
+- PowerShell
+
+## Instalação no Windows
+
+Clone o repositório:
+
+```powershell
+git clone https://github.com/VitorLugon/ai-service.git
+cd ai-service
+```
+
+Execute o script de instalação:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+O script:
+
+- cria o ambiente virtual;
+- atualiza o pip;
+- instala as dependências;
+- cria o `.env` a partir do `.env.example`, quando necessário.
+
+Depois, configure uma chave segura no `.env`:
+
+```env
+INTERNAL_API_KEY=sua-chave-secreta
+```
+
+Uma chave pode ser gerada com:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
 ## Executar localmente
 
-Ative o ambiente virtual:
-
 ```powershell
-.venv\Scripts\Activate.ps1
+powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
 ```
 
-Inicie a aplicação:
+A aplicação será disponibilizada em:
 
-```bash
-fastapi dev app/main.py
+```text
+http://127.0.0.1:8000
 ```
 
-A documentação interativa estará disponível em:
+A documentação interativa estará em:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
+## Endpoints
+
+| Método | Endpoint | Autenticação | Descrição |
+|---|---|---|---|
+| GET | `/health` | Não | Verifica se o processo está funcionando |
+| GET | `/ready` | Não | Verifica se o serviço está pronto |
+| GET | `/internal/ping` | API Key | Valida a autenticação entre serviços |
+
 ## Autenticação interna
 
-Os endpoints internos exigem uma API Key enviada pelo header:
+Os endpoints internos exigem o header:
 
 ```text
 X-API-Key: sua-chave
 ```
 
-A chave deve ser configurada no arquivo `.env`:
-
-```env
-INTERNAL_API_KEY=sua-chave
-```
-
-Exemplo com `curl`:
-
-```bash
-curl -H "X-API-Key: sua-chave" \
-  http://127.0.0.1:8000/internal/ping
-```
-
-No Windows PowerShell:
+Exemplo no PowerShell:
 
 ```powershell
 curl.exe `
@@ -59,21 +124,46 @@ curl.exe `
   http://127.0.0.1:8000/internal/ping
 ```
 
-As rotas `/health` e `/ready` são públicas e não exigem autenticação.
+As rotas `/health` e `/ready` são públicas.
 
-Nunca envie o arquivo `.env` ou chaves reais para o repositório.
+O arquivo `.env` e as chaves reais nunca devem ser enviados ao repositório.
 
 ## Qualidade do código
 
-Execute todas as verificações antes de enviar alterações:
+Execute todas as verificações com:
 
-```bash
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\check.ps1
+```
+
+Também é possível executar cada comando separadamente:
+
+```powershell
 ruff check .
 ruff format --check .
 mypy app
 pytest
 ```
 
-Os testes possuem cobertura mínima obrigatória de 90%.
+Os testes exigem cobertura mínima de 90%.
 
-O GitHub Actions executa automaticamente lint, verificação de formatação, análise de tipos e testes em cada push ou pull request para a branch `main`.
+## Integração contínua
+
+O GitHub Actions executa automaticamente:
+
+- lint;
+- verificação de formatação;
+- análise de tipos;
+- testes;
+- validação da cobertura.
+
+O workflow é executado em pushes e pull requests para a branch `main`.
+
+## Próximas funcionalidades
+
+- classificação automática de chamados;
+- geração de resumos;
+- integração com modelos de linguagem;
+- tratamento estruturado de erros;
+- observabilidade e logs estruturados;
+- integração com o backend do HelpDeskLite.
