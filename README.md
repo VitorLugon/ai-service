@@ -10,10 +10,13 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - endpoint de prontidão;
 - configuração por variáveis de ambiente;
 - autenticação interna por API Key;
-- integração inicial com a OpenAI API;
-- script de validação da conexão com o modelo;
+- integração com a OpenAI Responses API;
+- serviço inicial de classificação de chamados;
+- classificação por categoria, prioridade, resumo e tags;
+- validação dos dados de entrada com Pydantic;
+- scripts para validar a conexão e executar classificações reais;
+- testes da integração utilizando mocks, sem consumo da API;
 - documentação automática com OpenAPI e Swagger UI;
-- testes automatizados;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -40,10 +43,10 @@ ai-service/
 │   ├── api/          # Rotas e configuração HTTP
 │   ├── core/         # Configurações e segurança
 │   ├── schemas/      # Contratos Pydantic
-│   ├── services/     # Operações e regras da aplicação
+│   ├── services/     # Operações e integrações
 │   └── main.py       # Criação da aplicação FastAPI
 ├── docs/             # Documentação da arquitetura
-├── scripts/          # Instalação, execução e validações
+├── scripts/          # Instalação, execução e smoke tests
 └── tests/            # Testes automatizados
 ```
 
@@ -54,7 +57,7 @@ A descrição completa está em [`docs/architecture.md`](docs/architecture.md).
 - Python 3.12
 - Git
 - PowerShell
-- chave da OpenAI API para executar funcionalidades de inteligência artificial
+- chave da OpenAI API para executar funcionalidades reais de inteligência artificial
 
 As rotas básicas, como `/health` e `/ready`, funcionam sem uma chave da OpenAI.
 
@@ -111,7 +114,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 A variável `OPENAI_API_KEY` deve receber uma chave válida da OpenAI API.
 
-A variável `OPENAI_MODEL` determina qual modelo será utilizado pelo serviço:
+A variável `OPENAI_MODEL` determina qual modelo será utilizado:
 
 ```env
 OPENAI_API_KEY=sk-proj-sua-chave
@@ -120,7 +123,13 @@ OPENAI_MODEL=gpt-5-mini
 
 O modelo pode ser alterado por configuração sem modificar o código-fonte.
 
-Nunca coloque uma chave real no `.env.example`, no README ou diretamente no código.
+Nunca coloque uma chave real:
+
+- no `.env.example`;
+- no README;
+- diretamente no código;
+- em commits;
+- em capturas de tela.
 
 ## Executar localmente
 
@@ -156,6 +165,8 @@ http://127.0.0.1:8000/redoc
 | GET | `/ready` | Não | Verifica se o serviço está pronto para receber requisições |
 | GET | `/internal/ping` | API Key | Valida a autenticação entre serviços internos |
 
+O classificador de chamados ainda não possui um endpoint HTTP. Atualmente, ele é executado diretamente como um service por meio de um smoke test.
+
 ## Autenticação interna
 
 Os endpoints internos exigem uma API Key enviada pelo header:
@@ -183,7 +194,7 @@ Resposta esperada:
 
 As rotas `/health` e `/ready` são públicas.
 
-## Testar a integração com a OpenAI
+## Testar a conexão com a OpenAI
 
 Depois de configurar `OPENAI_API_KEY` e `OPENAI_MODEL` no `.env`, execute:
 
@@ -207,13 +218,74 @@ AI Service
 OpenAI Python SDK
     |
     v
-OpenAI API
+OpenAI Responses API
     |
     v
 Resposta do modelo
 ```
 
-O teste pode consumir uma pequena quantidade dos créditos disponíveis na conta da API.
+O comando utiliza a API real e pode consumir créditos.
+
+## Classificação de chamados
+
+O serviço inicial recebe um chamado com título e descrição:
+
+```json
+{
+  "title": "Não consigo acessar minha conta",
+  "description": "Após redefinir minha senha, o sistema continua informando credenciais inválidas."
+}
+```
+
+A resposta textual atual segue o formato:
+
+```text
+Categoria: acesso_e_autenticacao
+Prioridade: alta
+Resumo: Usuário não consegue acessar a conta após redefinir a senha.
+Tags: login, senha
+```
+
+As categorias disponíveis são:
+
+- `acesso_e_autenticacao`;
+- `erro_tecnico`;
+- `cobranca`;
+- `duvida_de_uso`;
+- `solicitacao`;
+- `outro`.
+
+As prioridades disponíveis são:
+
+- `baixa`;
+- `media`;
+- `alta`;
+- `critica`.
+
+A resposta ainda é textual. Uma próxima etapa implementará uma saída estruturada e validada.
+
+## Testar uma classificação real
+
+Depois de configurar a OpenAI API no `.env`, execute:
+
+```powershell
+python -m scripts.classify_ticket_smoke_test
+```
+
+Uma saída possível será:
+
+```text
+Modelo: gpt-5-mini
+
+Categoria: acesso_e_autenticacao
+Prioridade: alta
+Resumo: Usuário não consegue acessar o sistema após redefinir a senha.
+Tags: login, senha
+```
+
+O conteúdo pode variar entre execuções porque a classificação é gerada pelo modelo.
+
+Esse comando utiliza a API real e pode consumir créditos.
 
 ## Qualidade do código
 
@@ -250,9 +322,21 @@ Os testes automatizados verificam atualmente:
 - autenticação por API Key;
 - respostas para chaves ausentes ou inválidas;
 - contrato OpenAPI;
-- esquema de segurança exibido na documentação.
+- esquema de segurança da documentação;
+- validação da entrada de chamados;
+- serialização do chamado;
+- retorno do serviço de classificação;
+- rejeição de respostas vazias do modelo.
 
-Os testes não utilizam uma chave real da OpenAI e não devem consumir créditos da API.
+A integração com a OpenAI é simulada utilizando mocks.
+
+Os testes executados com `pytest`:
+
+- não utilizam uma chave real;
+- não realizam requisições externas;
+- não consomem créditos da API.
+
+Apenas os scripts de smoke test utilizam a API real.
 
 ## Integração contínua
 
@@ -291,13 +375,14 @@ __pycache__/
 .ruff_cache/
 ```
 
+O título e a descrição de um chamado são tratados como dados não confiáveis. O classificador é instruído a não seguir comandos presentes no conteúdo recebido.
+
 ## Próximas funcionalidades
 
-- classificação automática de chamados;
-- definição estruturada de categoria e prioridade;
-- geração de resumos de chamados;
-- sugestão automática de tags;
+- comparação entre prompts zero-shot, one-shot e few-shot;
+- saída estruturada para classificação de chamados;
+- endpoint `POST /internal/tickets/classify`;
 - tratamento estruturado de erros da OpenAI API;
-- mocks para testar integrações sem consumir créditos;
-- observabilidade e logs estruturados;
-- integração com o backend do HelpDeskLite.
+- testes para timeout, rate limit e falhas do provedor;
+- integração com o backend do HelpDeskLite;
+- observabilidade e logs estruturados.
