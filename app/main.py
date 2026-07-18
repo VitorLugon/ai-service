@@ -12,8 +12,7 @@ def create_application() -> FastAPI:
     application = FastAPI(
         title=settings.app_name,
         description=(
-            "Serviço responsável pelas funcionalidades "
-            "de inteligência artificial."
+            "Serviço responsável pelas funcionalidades de inteligência artificial."
         ),
         version=settings.app_version,
     )

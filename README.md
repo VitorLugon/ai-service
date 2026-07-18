@@ -62,3 +62,18 @@ curl.exe `
 As rotas `/health` e `/ready` são públicas e não exigem autenticação.
 
 Nunca envie o arquivo `.env` ou chaves reais para o repositório.
+
+## Qualidade do código
+
+Execute todas as verificações antes de enviar alterações:
+
+```bash
+ruff check .
+ruff format --check .
+mypy app
+pytest
+```
+
+Os testes possuem cobertura mínima obrigatória de 90%.
+
+O GitHub Actions executa automaticamente lint, verificação de formatação, análise de tipos e testes em cada push ou pull request para a branch `main`.
