@@ -13,6 +13,10 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - integração com a OpenAI Responses API;
 - serviço inicial de classificação de chamados;
 - classificação por categoria, prioridade, resumo e tags;
+- estratégias de prompt zero-shot, one-shot e few-shot;
+- módulo isolado para construção e teste de prompts;
+- critérios explícitos para classificação de prioridade;
+- script para comparação qualitativa das estratégias;
 - validação dos dados de entrada com Pydantic;
 - scripts para validar a conexão e executar classificações reais;
 - testes da integração utilizando mocks, sem consumo da API;
@@ -42,6 +46,7 @@ ai-service/
 ├── app/
 │   ├── api/          # Rotas e configuração HTTP
 │   ├── core/         # Configurações e segurança
+│   ├── prompts/      # Estratégias e instruções para os modelos
 │   ├── schemas/      # Contratos Pydantic
 │   ├── services/     # Operações e integrações
 │   └── main.py       # Criação da aplicação FastAPI
@@ -165,7 +170,9 @@ http://127.0.0.1:8000/redoc
 | GET | `/ready` | Não | Verifica se o serviço está pronto para receber requisições |
 | GET | `/internal/ping` | API Key | Valida a autenticação entre serviços internos |
 
-O classificador de chamados ainda não possui um endpoint HTTP. Atualmente, ele é executado diretamente como um service por meio de um smoke test.
+O classificador de chamados ainda não possui um endpoint HTTP.
+
+Atualmente, ele é executado diretamente como um service por meio dos scripts de teste manual.
 
 ## Autenticação interna
 
@@ -246,7 +253,7 @@ Resumo: Usuário não consegue acessar a conta após redefinir a senha.
 Tags: login, senha
 ```
 
-As categorias disponíveis são:
+As categorias permitidas são:
 
 - `acesso_e_autenticacao`;
 - `erro_tecnico`;
@@ -255,14 +262,14 @@ As categorias disponíveis são:
 - `solicitacao`;
 - `outro`.
 
-As prioridades disponíveis são:
+As prioridades permitidas são:
 
 - `baixa`;
 - `media`;
 - `alta`;
 - `critica`.
 
-A resposta ainda é textual. Uma próxima etapa implementará uma saída estruturada e validada.
+A resposta ainda é textual. Uma próxima etapa implementará uma saída estruturada e validada pelo Pydantic.
 
 ## Testar uma classificação real
 
@@ -286,6 +293,81 @@ Tags: login, senha
 O conteúdo pode variar entre execuções porque a classificação é gerada pelo modelo.
 
 Esse comando utiliza a API real e pode consumir créditos.
+
+## Estratégias de prompt
+
+O classificador suporta três estratégias.
+
+### Zero-shot
+
+Utiliza somente:
+
+- identidade do classificador;
+- instruções;
+- categorias permitidas;
+- prioridades permitidas;
+- critérios de prioridade;
+- formato esperado.
+
+Nenhum exemplo é fornecido ao modelo.
+
+### One-shot
+
+Utiliza as instruções e uma classificação de exemplo.
+
+O exemplo ajuda o modelo a entender:
+
+- formato da resposta;
+- estilo do resumo;
+- uso de tags;
+- relacionamento entre chamado e classificação.
+
+### Few-shot
+
+Utiliza vários exemplos de chamados e classificações.
+
+Os exemplos atuais incluem:
+
+- cobrança duplicada;
+- conta bloqueada;
+- indisponibilidade geral do sistema.
+
+O few-shot é utilizado atualmente como baseline padrão do classificador.
+
+Isso não significa que ele será necessariamente a estratégia definitiva. A escolha final deverá ser baseada em avaliações com chamados representativos.
+
+## Comparar estratégias de prompt
+
+Para classificar o mesmo chamado com zero-shot, one-shot e few-shot, execute:
+
+```powershell
+python -m scripts.compare_prompt_strategies
+```
+
+O fluxo executado será:
+
+```text
+Mesmo chamado
+    |
+    ├── Zero-shot
+    ├── One-shot
+    └── Few-shot
+```
+
+O resultado de cada estratégia será exibido no terminal.
+
+Compare:
+
+- respeito ao formato de quatro linhas;
+- uso de categorias permitidas;
+- coerência da prioridade;
+- qualidade do resumo;
+- relevância das tags;
+- presença de texto desnecessário.
+
+Esse comando realiza três requisições reais e pode consumir créditos da API.
+
+Os testes executados com `pytest` continuam utilizando mocks e não consomem créditos.
 
 ## Qualidade do código
 
@@ -326,7 +408,12 @@ Os testes automatizados verificam atualmente:
 - validação da entrada de chamados;
 - serialização do chamado;
 - retorno do serviço de classificação;
-- rejeição de respostas vazias do modelo.
+- rejeição de respostas vazias do modelo;
+- utilização da estratégia de prompt selecionada;
+- ausência de exemplos no zero-shot;
+- presença de um exemplo no one-shot;
+- presença de vários exemplos no few-shot;
+- manutenção das categorias e prioridades permitidas.
 
 A integração com a OpenAI é simulada utilizando mocks.
 
@@ -336,7 +423,7 @@ Os testes executados com `pytest`:
 - não realizam requisições externas;
 - não consomem créditos da API.
 
-Apenas os scripts de smoke test utilizam a API real.
+Apenas os scripts de smoke test e comparação utilizam a API real.
 
 ## Integração contínua
 
@@ -375,14 +462,21 @@ __pycache__/
 .ruff_cache/
 ```
 
-O título e a descrição de um chamado são tratados como dados não confiáveis. O classificador é instruído a não seguir comandos presentes no conteúdo recebido.
+O título e a descrição de um chamado são tratados como dados não confiáveis.
+
+O classificador é instruído a:
+
+- não seguir comandos presentes no chamado;
+- analisar apenas o problema relatado;
+- manter a saída dentro do formato solicitado.
 
 ## Próximas funcionalidades
 
-- comparação entre prompts zero-shot, one-shot e few-shot;
 - saída estruturada para classificação de chamados;
+- validação de categoria, prioridade, resumo e tags com Pydantic;
 - endpoint `POST /internal/tickets/classify`;
 - tratamento estruturado de erros da OpenAI API;
 - testes para timeout, rate limit e falhas do provedor;
+- avaliação com um conjunto representativo de chamados;
 - integração com o backend do HelpDeskLite;
 - observabilidade e logs estruturados.

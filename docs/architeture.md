@@ -4,7 +4,7 @@
 
 O AI Service é uma API independente construída com Python e FastAPI para fornecer funcionalidades de inteligência artificial a aplicações internas.
 
-Inicialmente, o serviço será consumido pelo backend do HelpDeskLite. Sua arquitetura permite que outras aplicações também utilizem suas funcionalidades futuramente.
+O serviço será inicialmente consumido pelo backend do HelpDeskLite, mas sua arquitetura permite que outras aplicações também reutilizem suas funcionalidades.
 
 ```text
 HelpDeskLite Backend
@@ -17,13 +17,19 @@ AI Service — FastAPI
 Serviços de aplicação
         |
         v
-OpenAI API e outros provedores de IA
+Prompts e integrações de IA
+        |
+        v
+OpenAI Responses API
 ```
 
 ## Estrutura do projeto
 
 ```text
 ai-service/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── app/
 │   ├── api/
 │   │   ├── routes/
@@ -34,6 +40,9 @@ ai-service/
 │   ├── core/
 │   │   ├── config.py
 │   │   └── security.py
+│   ├── prompts/
+│   │   ├── __init__.py
+│   │   └── ticket_classification.py
 │   ├── schemas/
 │   │   ├── health.py
 │   │   ├── internal.py
@@ -46,15 +55,26 @@ ai-service/
 ├── docs/
 │   └── architecture.md
 ├── scripts/
+│   ├── __init__.py
 │   ├── setup.ps1
 │   ├── check.ps1
 │   ├── dev.ps1
 │   ├── openai_smoke_test.py
-│   └── classify_ticket_smoke_test.py
+│   ├── classify_ticket_smoke_test.py
+│   └── compare_prompt_strategies.py
 ├── tests/
+│   ├── conftest.py
+│   ├── test_health.py
+│   ├── test_openapi.py
+│   ├── test_readiness.py
+│   ├── test_security.py
+│   ├── test_ticket_classifier.py
+│   └── test_ticket_classification_prompt.py
 ├── .env.example
+├── .gitignore
 ├── .python-version
 ├── pyproject.toml
+├── README.md
 └── requirements.txt
 ```
 
@@ -71,7 +91,7 @@ Suas responsabilidades são:
 - registrar os routers;
 - disponibilizar a aplicação para execução.
 
-Esse arquivo não deve conter regras de negócio ou implementações de endpoints.
+Esse arquivo não deve conter regras de negócio, prompts ou implementações de endpoints.
 
 ### API
 
@@ -82,10 +102,15 @@ As rotas são responsáveis por:
 - receber requisições;
 - validar dados por meio dos schemas;
 - executar dependências;
-- chamar serviços;
+- chamar services;
 - transformar resultados em respostas HTTP.
 
-As rotas não devem concentrar regras de negócio ou criar diretamente prompts complexos.
+As rotas não devem:
+
+- concentrar regras de negócio;
+- construir prompts extensos;
+- criar diretamente clientes de APIs externas;
+- carregar segredos do ambiente.
 
 O arquivo `app/api/router.py` centraliza o registro dos routers.
 
@@ -97,15 +122,46 @@ Atualmente, ela inclui:
 
 - carregamento de variáveis de ambiente;
 - configurações gerais do serviço;
-- configuração da OpenAI API;
+- configurações da OpenAI API;
 - autenticação interna por API Key;
 - validação do header `X-API-Key`.
 
-Segredos são carregados por variáveis de ambiente e não devem ser registrados no código ou no repositório.
+Segredos são carregados por variáveis de ambiente e não devem ser registrados no código, logs ou repositório.
+
+### Prompts
+
+A pasta `app/prompts` contém as instruções enviadas aos modelos de linguagem.
+
+Os prompts permanecem separados dos services para permitir:
+
+- comparação entre diferentes estratégias;
+- testes do conteúdo estático;
+- evolução das instruções sem alterar a integração com o provedor;
+- reutilização em scripts e futuros endpoints;
+- avaliação controlada de mudanças;
+- versionamento independente das regras de prompting.
+
+O classificador suporta atualmente três estratégias:
+
+- `zero_shot`;
+- `one_shot`;
+- `few_shot`.
+
+O arquivo `app/prompts/ticket_classification.py` contém:
+
+- o enum `PromptStrategy`;
+- as instruções básicas do classificador;
+- os critérios de categoria;
+- os critérios de prioridade;
+- exemplos one-shot;
+- exemplos few-shot;
+- a função responsável por construir o prompt final.
+
+O few-shot é utilizado como baseline inicial, mas não deve ser considerado automaticamente a melhor solução. A estratégia definitiva deverá ser escolhida a partir de avaliações com chamados representativos.
 
 ### Schemas
 
-A pasta `app/schemas` contém os modelos Pydantic que definem os contratos de entrada e saída da aplicação.
+A pasta `app/schemas` contém modelos Pydantic que definem os contratos de entrada e saída da aplicação.
 
 Atualmente, existem schemas para:
 
@@ -115,11 +171,15 @@ Atualmente, existem schemas para:
 - entrada de chamados;
 - resposta preliminar da classificação.
 
-Os schemas de chamados validam informações como:
+Os schemas de chamados validam:
 
 - tamanho mínimo e máximo do título;
 - tamanho mínimo e máximo da descrição;
 - remoção de espaços desnecessários.
+
+A resposta da classificação ainda é textual e armazenada como `TicketClassificationDraft`.
+
+Uma etapa posterior substituirá esse contrato por uma resposta estruturada contendo campos validados para categoria, prioridade, resumo e tags.
 
 ### Services
 
@@ -197,7 +257,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 ```
 
-A chave é armazenada como `SecretStr` e não deve ser exibida em logs ou mensagens de erro.
+A chave é armazenada como `SecretStr`.
 
 A aplicação utiliza o cliente assíncrono `AsyncOpenAI`, compatível com o fluxo assíncrono do FastAPI.
 
@@ -218,14 +278,25 @@ Resposta do modelo
 
 ## Classificação de chamados
 
-O arquivo `app/services/ticket_classifier.py` contém a integração inicial responsável por classificar chamados do HelpDeskLite.
+O arquivo `app/services/ticket_classifier.py` contém o serviço responsável pela classificação inicial de chamados do HelpDeskLite.
 
 O serviço recebe pelo construtor:
 
-- cliente da OpenAI;
-- nome do modelo.
+- cliente assíncrono da OpenAI;
+- nome do modelo;
+- estratégia de prompt.
 
-Ele não:
+Exemplo:
+
+```python
+classifier = TicketClassifierService(
+    client=client,
+    model="gpt-5-mini",
+    prompt_strategy=PromptStrategy.FEW_SHOT,
+)
+```
+
+O service não:
 
 - carrega diretamente o arquivo `.env`;
 - procura a API Key;
@@ -237,6 +308,12 @@ O fluxo atual é:
 
 ```text
 TicketClassificationInput
+        |
+        v
+PromptStrategy
+        |
+        v
+build_ticket_classification_instructions
         |
         v
 TicketClassifierService
@@ -269,7 +346,7 @@ Resumo: Usuário não consegue acessar a conta após redefinir a senha.
 Tags: login, senha
 ```
 
-As categorias disponíveis atualmente são:
+As categorias permitidas são:
 
 ```text
 acesso_e_autenticacao
@@ -280,7 +357,7 @@ solicitacao
 outro
 ```
 
-As prioridades disponíveis são:
+As prioridades permitidas são:
 
 ```text
 baixa
@@ -289,9 +366,79 @@ alta
 critica
 ```
 
-A resposta ainda é textual e armazenada em `TicketClassificationDraft`.
+## Estratégias de prompting
 
-Uma etapa posterior substituirá esse formato por uma saída estruturada e validada pelo Pydantic.
+### Zero-shot
+
+A estratégia zero-shot utiliza somente:
+
+- identidade do classificador;
+- instruções da tarefa;
+- categorias permitidas;
+- prioridades permitidas;
+- critérios de prioridade;
+- formato esperado da resposta.
+
+Nenhum exemplo de entrada e saída é fornecido ao modelo.
+
+### One-shot
+
+A estratégia one-shot adiciona um exemplo completo de classificação.
+
+O objetivo é demonstrar:
+
+- formato esperado;
+- estilo do resumo;
+- uso de tags;
+- relacionamento entre um problema e sua classificação.
+
+### Few-shot
+
+A estratégia few-shot adiciona vários exemplos de chamados diferentes.
+
+Os exemplos atuais representam:
+
+- cobrança duplicada;
+- bloqueio de acesso;
+- indisponibilidade geral do sistema.
+
+Isso ajuda o modelo a observar diferentes níveis de impacto e prioridade.
+
+O few-shot é o baseline padrão atual do `TicketClassifierService`.
+
+## Comparação entre estratégias
+
+O script `scripts/compare_prompt_strategies.py` executa o mesmo chamado utilizando:
+
+```text
+zero_shot
+one_shot
+few_shot
+```
+
+O fluxo é:
+
+```text
+Chamado de avaliação
+        |
+        ├── Zero-shot
+        ├── One-shot
+        └── Few-shot
+                |
+                v
+Resultados exibidos no terminal
+```
+
+Os resultados são comparados qualitativamente considerando:
+
+- formato correto;
+- categoria válida;
+- prioridade coerente;
+- resumo objetivo;
+- tags relevantes;
+- ausência de texto extra.
+
+A execução realiza três requisições reais e pode consumir créditos da API.
 
 ## Tratamento do conteúdo recebido
 
@@ -304,11 +451,13 @@ O chamado é serializado como JSON para melhorar a separação entre:
 - instruções do sistema;
 - conteúdo fornecido pelo usuário.
 
-Essa separação reduz ambiguidades, mas não elimina completamente riscos relacionados a prompt injection. Outras validações serão adicionadas posteriormente.
+Essa separação reduz ambiguidades, mas não elimina completamente riscos relacionados a prompt injection.
+
+Outras validações serão adicionadas posteriormente.
 
 ## Scripts
 
-A pasta `scripts` contém operações de desenvolvimento e validação.
+A pasta `scripts` contém operações de desenvolvimento, validação e testes manuais.
 
 ### `setup.ps1`
 
@@ -341,15 +490,19 @@ Realiza uma requisição mínima para verificar a conexão com a OpenAI API.
 
 Envia um chamado de exemplo para o `TicketClassifierService` e exibe a classificação retornada pelo modelo.
 
-Os smoke tests utilizam a API real e podem consumir créditos.
+### `compare_prompt_strategies.py`
+
+Classifica o mesmo chamado usando zero-shot, one-shot e few-shot.
+
+Os scripts que acessam a OpenAI API utilizam a API real e podem consumir créditos.
 
 ## Testes
 
-A pasta `tests` contém testes automatizados dos endpoints, serviços, configurações e contratos OpenAPI.
+A pasta `tests` contém testes automatizados dos endpoints, services, configurações, prompts e contratos OpenAPI.
 
 As configurações usadas nos testes são isoladas por meio de fixtures do pytest.
 
-A integração com a OpenAI é testada utilizando:
+A integração com a OpenAI é simulada utilizando:
 
 - `MagicMock`;
 - `AsyncMock`;
@@ -363,7 +516,19 @@ Os testes do classificador verificam:
 - envio dos parâmetros corretos ao SDK;
 - rejeição de respostas vazias;
 - validação dos dados de entrada;
-- serialização do chamado.
+- serialização do chamado;
+- utilização da estratégia selecionada.
+
+Os testes dos prompts verificam:
+
+- ausência de exemplos no zero-shot;
+- presença de um exemplo no one-shot;
+- presença de vários exemplos no few-shot;
+- categorias permitidas;
+- prioridades permitidas;
+- manutenção do contrato estático das instruções.
+
+Esses testes não avaliam a qualidade das respostas do modelo. Avaliações de qualidade serão adicionadas posteriormente usando um conjunto representativo de chamados.
 
 ## Integração contínua
 
@@ -382,10 +547,12 @@ O workflow é executado em pushes e pull requests para a branch `main`.
 1. Rotas lidam com HTTP.
 2. Services concentram operações e regras da aplicação.
 3. Schemas definem contratos de entrada e saída.
-4. Configurações e segurança ficam em `core`.
-5. Clientes externos devem ser recebidos como dependências.
-6. Chamados e outros conteúdos de usuários são dados não confiáveis.
-7. Testes automatizados não devem consumir APIs externas.
-8. Novas pastas somente devem ser criadas quando existir uma responsabilidade concreta.
-9. Segredos nunca devem ser registrados no repositório.
-10. Funcionalidades de IA devem ser implementadas primeiro como services e depois expostas por endpoints.
+4. Prompts ficam separados dos services.
+5. Configurações e segurança ficam em `core`.
+6. Clientes externos devem ser recebidos como dependências.
+7. Chamados e outros conteúdos de usuários são dados não confiáveis.
+8. Testes automatizados não devem consumir APIs externas.
+9. Novas pastas somente devem ser criadas quando existir uma responsabilidade concreta.
+10. Segredos nunca devem ser registrados no repositório.
+11. Funcionalidades de IA devem ser implementadas primeiro como services e depois expostas por endpoints.
+12. Mudanças em prompts devem ser acompanhadas por testes e avaliações.

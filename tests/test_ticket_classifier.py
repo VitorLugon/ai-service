@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import ValidationError
 
+from app.prompts.ticket_classification import PromptStrategy
 from app.schemas.tickets import TicketClassificationInput
 from app.services.ticket_classifier import TicketClassifierService
 
@@ -81,3 +82,35 @@ def test_ticket_input_rejects_short_description() -> None:
             title="Erro ao entrar",
             description="Erro",
         )
+
+
+def test_ticket_classifier_uses_selected_prompt_strategy() -> None:
+    client = MagicMock()
+    client.responses.create = AsyncMock(
+        return_value=SimpleNamespace(
+            output_text=(
+                "Categoria: cobranca\n"
+                "Prioridade: media\n"
+                "Resumo: Cliente recebeu cobrança duplicada.\n"
+                "Tags: pagamento, duplicidade"
+            ),
+        ),
+    )
+
+    classifier = TicketClassifierService(
+        client=client,
+        model="test-model",
+        prompt_strategy=PromptStrategy.ONE_SHOT,
+    )
+
+    ticket = TicketClassificationInput(
+        title="Cobrança duplicada",
+        description="A mesma mensalidade foi cobrada duas vezes.",
+    )
+
+    asyncio.run(classifier.classify(ticket))
+
+    request = client.responses.create.await_args.kwargs
+    instructions = request["instructions"]
+
+    assert instructions.count("<expected_output id=") == 1
