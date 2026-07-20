@@ -10,7 +10,7 @@ def test_zero_shot_prompt_does_not_include_examples() -> None:
     )
 
     assert "# Identidade" in instructions
-    assert "# Instruções" in instructions
+    assert "# Regras" in instructions
     assert "# Exemplos" not in instructions
     assert "<expected_output" not in instructions
 

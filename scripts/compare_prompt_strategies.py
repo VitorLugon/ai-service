@@ -53,7 +53,7 @@ async def main() -> None:
             print(f"Estratégia: {strategy.value}")
             print(f"Modelo: {result.model}")
             print("")
-            print(result.raw_output)
+            print(result.model_dump_json(indent=2))
             print("")
 
 

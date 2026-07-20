@@ -23,3 +23,26 @@ def test_openapi_exposes_internal_api_key_security(
             "InternalApiKey": [],
         }
     ]
+
+
+def test_openapi_documents_ticket_classification(
+    client: TestClient,
+) -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == status.HTTP_200_OK
+
+    schema = response.json()
+    operation = schema["paths"]["/internal/tickets/classify"]["post"]
+
+    assert operation["security"] == [
+        {
+            "InternalApiKey": [],
+        }
+    ]
+
+    responses = operation["responses"]
+
+    assert "200" in responses
+    assert "422" in responses
+    assert "503" in responses

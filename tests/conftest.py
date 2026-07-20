@@ -23,15 +23,19 @@ def client() -> Iterator[TestClient]:
 
     def override_get_settings() -> Settings:
         return Settings(
+            _env_file=None,
             app_name="AI Service",
             app_version="0.1.0",
             environment="test",
             internal_api_key=SecretStr(TEST_API_KEY),
+            openai_api_key=None,
+            openai_model="test-model",
         )
 
     app.dependency_overrides[get_settings] = override_get_settings
 
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()

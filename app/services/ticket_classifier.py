@@ -7,8 +7,8 @@ from app.prompts.ticket_classification import (
     build_ticket_classification_instructions,
 )
 from app.schemas.tickets import (
-    TicketClassificationDraft,
     TicketClassificationInput,
+    TicketClassificationResult,
 )
 
 
@@ -25,33 +25,40 @@ class TicketClassifierService:
         self._model = model
         self._prompt_strategy = prompt_strategy
 
+    @property
+    def model(self) -> str:
+        """Retorna o modelo utilizado pelo classificador."""
+
+        return self._model
+
     async def classify(
         self,
         ticket: TicketClassificationInput,
-    ) -> TicketClassificationDraft:
-        """Classifica um chamado e retorna a resposta textual do modelo."""
+    ) -> TicketClassificationResult:
+        """Classifica um chamado e retorna um objeto validado."""
 
-        response = await self._client.responses.create(
+        response = await self._client.responses.parse(
             model=self._model,
             instructions=build_ticket_classification_instructions(
                 self._prompt_strategy,
             ),
             input=self._serialize_ticket(ticket),
+            text_format=TicketClassificationResult,
             max_output_tokens=500,
             store=False,
         )
 
-        raw_output = response.output_text.strip()
+        parsed_output = response.output_parsed
 
-        if not raw_output:
+        if not isinstance(
+            parsed_output,
+            TicketClassificationResult,
+        ):
             raise RuntimeError(
-                "O modelo retornou uma classificação vazia.",
+                "O modelo não retornou uma classificação estruturada.",
             )
 
-        return TicketClassificationDraft(
-            model=self._model,
-            raw_output=raw_output,
-        )
+        return parsed_output
 
     @staticmethod
     def _serialize_ticket(

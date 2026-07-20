@@ -8,7 +8,7 @@ from app.services.ticket_classifier import TicketClassifierService
 
 
 async def main() -> None:
-    """Executa uma classificação real para validar o serviço."""
+    """Executa uma classificação real e estruturada."""
 
     settings = get_settings()
 
@@ -45,9 +45,8 @@ async def main() -> None:
 
         result = await classifier.classify(ticket)
 
-    print(f"Modelo: {result.model}")
-    print("")
-    print(result.raw_output)
+    print(f"Modelo: {classifier.model}")
+    print(result.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
