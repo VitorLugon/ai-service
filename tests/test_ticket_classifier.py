@@ -5,6 +5,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pydantic import ValidationError
 
+from app.core.exceptions import (
+    AIProviderIncompleteResponseError,
+    AIProviderInvalidResponseError,
+    AIProviderRefusalError,
+)
 from app.prompts.ticket_classification import PromptStrategy
 from app.schemas.tickets import (
     TicketCategory,
@@ -35,6 +40,8 @@ def test_ticket_classifier_returns_structured_output() -> None:
     client = MagicMock()
     client.responses.parse = AsyncMock(
         return_value=SimpleNamespace(
+            status="completed",
+            output=[],
             output_parsed=expected_result,
         ),
     )
@@ -66,6 +73,8 @@ def test_ticket_classifier_rejects_missing_parsed_output() -> None:
     client = MagicMock()
     client.responses.parse = AsyncMock(
         return_value=SimpleNamespace(
+            status="completed",
+            output=[],
             output_parsed=None,
         ),
     )
@@ -75,10 +84,7 @@ def test_ticket_classifier_rejects_missing_parsed_output() -> None:
         model="test-model",
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="classificação estruturada",
-    ):
+    with pytest.raises(AIProviderInvalidResponseError):
         asyncio.run(
             classifier.classify(create_ticket()),
         )
@@ -95,6 +101,8 @@ def test_ticket_classifier_uses_selected_prompt_strategy() -> None:
     client = MagicMock()
     client.responses.parse = AsyncMock(
         return_value=SimpleNamespace(
+            status="completed",
+            output=[],
             output_parsed=expected_result,
         ),
     )
@@ -130,4 +138,49 @@ def test_classification_rejects_invalid_category() -> None:
             priority=TicketPriority.LOW,
             summary="Não foi possível identificar o tipo do problema.",
             suggested_tags=["triagem"],
+        )
+
+
+def test_ticket_classifier_rejects_incomplete_response() -> None:
+    client = MagicMock()
+    client.responses.parse = AsyncMock(
+        return_value=SimpleNamespace(
+            status="incomplete",
+            output=[],
+            output_parsed=None,
+        ),
+    )
+
+    classifier = TicketClassifierService(
+        client=client,
+        model="test-model",
+    )
+
+    with pytest.raises(AIProviderIncompleteResponseError):
+        asyncio.run(
+            classifier.classify(create_ticket()),
+        )
+
+
+def test_ticket_classifier_rejects_refusal() -> None:
+    refusal = SimpleNamespace(type="refusal")
+    message = SimpleNamespace(content=[refusal])
+
+    client = MagicMock()
+    client.responses.parse = AsyncMock(
+        return_value=SimpleNamespace(
+            status="completed",
+            output=[message],
+            output_parsed=None,
+        ),
+    )
+
+    classifier = TicketClassifierService(
+        client=client,
+        model="test-model",
+    )
+
+    with pytest.raises(AIProviderRefusalError):
+        asyncio.run(
+            classifier.classify(create_ticket()),
         )

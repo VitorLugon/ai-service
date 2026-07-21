@@ -116,5 +116,7 @@ def test_classify_ticket_returns_503_without_openai_configuration(
 
     assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert response.json() == {
+        "code": "ai_provider_not_configured",
         "detail": "AI provider is not configured.",
+        "retryable": "False",
     }

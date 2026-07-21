@@ -12,18 +12,20 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - autenticação interna por API Key;
 - integração com a OpenAI Responses API;
 - classificação automática de chamados;
-- classificação por categoria e prioridade;
-- geração de resumo e sugestão de tags;
 - saída estruturada validada com Pydantic;
-- enums para categorias e prioridades;
-- endpoint interno para classificação de chamados;
-- estratégias de prompt zero-shot, one-shot e few-shot;
-- módulo isolado para construção e teste de prompts;
-- critérios explícitos para classificação de prioridade;
-- script para comparação qualitativa das estratégias;
-- validação dos dados de entrada;
-- testes da integração utilizando mocks;
+- categoria, prioridade, resumo e tags;
+- endpoint protegido para classificação;
+- estratégias zero-shot, one-shot e few-shot;
+- tratamento de entradas incompatíveis;
+- exceções próprias para falhas do provedor;
+- tratamento de timeout e falhas de conexão;
+- tratamento de rate limit;
+- tratamento de autenticação e configuração inválidas;
+- tratamento de respostas incompletas;
+- tratamento de recusas do modelo;
+- respostas HTTP padronizadas;
 - documentação automática com OpenAPI e Swagger UI;
+- testes automatizados sem consumo da API;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -51,12 +53,13 @@ ai-service/
 │   ├── api/
 │   │   ├── dependencies/  # Construção e injeção de dependências
 │   │   ├── routes/        # Endpoints HTTP
-│   │   └── router.py      # Registro central das rotas
-│   ├── core/              # Configurações e segurança
-│   ├── prompts/           # Estratégias e instruções para os modelos
+│   │   ├── exception_handlers.py
+│   │   └── router.py
+│   ├── core/              # Configurações, segurança e exceções
+│   ├── prompts/           # Estratégias e instruções
 │   ├── schemas/           # Contratos Pydantic
-│   ├── services/          # Operações e integrações
-│   └── main.py            # Criação da aplicação FastAPI
+│   ├── services/          # Regras e integrações
+│   └── main.py            # Criação da aplicação
 ├── docs/                  # Documentação da arquitetura
 ├── scripts/               # Instalação, execução e smoke tests
 └── tests/                 # Testes automatizados
@@ -82,7 +85,7 @@ git clone https://github.com/VitorLugon/ai-service.git
 cd ai-service
 ```
 
-Execute o script de instalação:
+Execute o script:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
@@ -97,9 +100,7 @@ O script:
 
 ## Variáveis de ambiente
 
-As configurações locais devem ser armazenadas no arquivo `.env`.
-
-Exemplo:
+As configurações locais devem ser armazenadas no `.env`.
 
 ```env
 APP_NAME=AI Service
@@ -114,28 +115,28 @@ OPENAI_MODEL=gpt-5-mini
 
 ### Chave interna
 
-A variável `INTERNAL_API_KEY` protege a comunicação entre o AI Service e aplicações internas, como o backend do HelpDeskLite.
+A variável `INTERNAL_API_KEY` protege os endpoints internos.
 
-Uma chave segura pode ser gerada com:
+Gere uma chave segura com:
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Depois de alterar o `.env`, reinicie a aplicação para que as novas configurações sejam carregadas.
+Depois de modificar o `.env`, reinicie a aplicação.
 
 ### OpenAI API
 
 A variável `OPENAI_API_KEY` deve receber uma chave válida da OpenAI API.
 
-A variável `OPENAI_MODEL` determina qual modelo será utilizado:
+A variável `OPENAI_MODEL` determina o modelo utilizado:
 
 ```env
 OPENAI_API_KEY=sk-proj-sua-chave
 OPENAI_MODEL=gpt-5-mini
 ```
 
-O modelo pode ser alterado por configuração sem modificar o código-fonte.
+O modelo pode ser alterado sem modificar o código-fonte.
 
 Nunca coloque uma chave real:
 
@@ -147,25 +148,23 @@ Nunca coloque uma chave real:
 
 ## Executar localmente
 
-Execute:
-
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
 ```
 
-A aplicação será disponibilizada em:
+Aplicação:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-A documentação interativa estará em:
+Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-A documentação alternativa estará em:
+ReDoc:
 
 ```text
 http://127.0.0.1:8000/redoc
@@ -175,20 +174,20 @@ http://127.0.0.1:8000/redoc
 
 | Método | Endpoint | Autenticação | Descrição |
 |---|---|---|---|
-| GET | `/health` | Não | Verifica se o processo da aplicação está funcionando |
-| GET | `/ready` | Não | Verifica se o serviço está pronto para receber requisições |
-| GET | `/internal/ping` | API Key | Valida a autenticação entre serviços internos |
-| POST | `/internal/tickets/classify` | API Key | Classifica um chamado usando inteligência artificial |
+| GET | `/health` | Não | Verifica se o processo está funcionando |
+| GET | `/ready` | Não | Verifica se o serviço está pronto |
+| GET | `/internal/ping` | API Key | Valida a autenticação interna |
+| POST | `/internal/tickets/classify` | API Key | Classifica um chamado usando IA |
 
 ## Autenticação interna
 
-Os endpoints internos exigem uma API Key enviada pelo header:
+Endpoints internos exigem:
 
 ```text
 X-API-Key: sua-chave
 ```
 
-Exemplo para validar a autenticação:
+Teste de autenticação:
 
 ```powershell
 curl.exe `
@@ -196,7 +195,7 @@ curl.exe `
   http://127.0.0.1:8000/internal/ping
 ```
 
-Resposta esperada:
+Resposta:
 
 ```json
 {
@@ -209,7 +208,7 @@ As rotas `/health` e `/ready` são públicas.
 
 ## Testar a conexão com a OpenAI
 
-Depois de configurar `OPENAI_API_KEY` e `OPENAI_MODEL` no `.env`, execute:
+Configure o `.env` e execute:
 
 ```powershell
 python -m scripts.openai_smoke_test
@@ -222,26 +221,11 @@ Modelo: gpt-5-mini
 Resposta: ok
 ```
 
-Esse script realiza uma requisição mínima para confirmar o fluxo:
-
-```text
-AI Service
-    |
-    v
-OpenAI Python SDK
-    |
-    v
-OpenAI Responses API
-    |
-    v
-Resposta do modelo
-```
-
-O comando utiliza a API real e pode consumir créditos.
+Esse comando utiliza a API real e pode consumir créditos.
 
 ## Classificação de chamados
 
-O serviço recebe um chamado contendo título e descrição:
+Entrada:
 
 ```json
 {
@@ -250,7 +234,7 @@ O serviço recebe um chamado contendo título e descrição:
 }
 ```
 
-A OpenAI retorna uma saída estruturada, validada com Pydantic:
+Resposta:
 
 ```json
 {
@@ -266,11 +250,11 @@ A OpenAI retorna uma saída estruturada, validada com Pydantic:
 }
 ```
 
-A aplicação não realiza parsing manual de texto. O contrato da resposta é representado por modelos Pydantic e enviado ao SDK como formato estruturado.
+A resposta da OpenAI é validada com modelos Pydantic.
+
+Não é realizado parsing manual de texto.
 
 ## Categorias
-
-As categorias permitidas são:
 
 - `acesso_e_autenticacao`;
 - `erro_tecnico`;
@@ -279,11 +263,7 @@ As categorias permitidas são:
 - `solicitacao`;
 - `outro`.
 
-Valores que não pertencem a essa lista são rejeitados pelo schema.
-
 ## Prioridades
-
-As prioridades permitidas são:
 
 - `baixa`;
 - `media`;
@@ -292,20 +272,18 @@ As prioridades permitidas são:
 
 Critérios gerais:
 
-- `baixa`: dúvida ou solicitação sem bloqueio e sem urgência;
+- `baixa`: dúvida ou solicitação sem bloqueio;
 - `media`: impacto limitado, com alternativa disponível;
-- `alta`: usuário ou função importante bloqueada, sem alternativa adequada;
-- `critica`: indisponibilidade ampla, risco de segurança, perda de dados ou operação essencial interrompida.
+- `alta`: usuário ou função importante bloqueada;
+- `critica`: indisponibilidade ampla, risco de segurança ou perda de dados.
 
 ## Testar uma classificação diretamente
-
-Depois de configurar a OpenAI API no `.env`, execute:
 
 ```powershell
 python -m scripts.classify_ticket_smoke_test
 ```
 
-Uma saída possível será:
+Uma saída possível:
 
 ```text
 Modelo: gpt-5-mini
@@ -323,37 +301,26 @@ Modelo: gpt-5-mini
 
 Esse comando utiliza a API real e pode consumir créditos.
 
-## Testar o endpoint pelo Swagger UI
+## Testar pelo Swagger UI
 
-Inicie a aplicação e abra:
+Abra:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-No Swagger UI:
+Depois:
 
 1. clique em **Authorize**;
-2. informe somente o valor de `INTERNAL_API_KEY`;
+2. informe somente a `INTERNAL_API_KEY`;
 3. abra `POST /internal/tickets/classify`;
 4. clique em **Try it out**;
-5. envie um chamado;
+5. informe o chamado;
 6. clique em **Execute**.
 
-Exemplo de corpo:
-
-```json
-{
-  "title": "Não consigo acessar minha conta",
-  "description": "Depois de redefinir minha senha, o acesso continua bloqueado e preciso trabalhar hoje."
-}
-```
-
-## Testar o endpoint pelo PowerShell
+## Testar pelo PowerShell
 
 Deixe o FastAPI em execução em outro terminal.
-
-Crie o corpo da requisição:
 
 ```powershell
 $payload = @{
@@ -365,7 +332,7 @@ $jsonBody = $payload | ConvertTo-Json -Compress
 $utf8Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
 ```
 
-Configure o header e os parâmetros:
+Configure a chamada:
 
 ```powershell
 $headers = @{
@@ -382,7 +349,7 @@ $params = @{
 }
 ```
 
-Execute a chamada:
+Execute:
 
 ```powershell
 $response = Invoke-RestMethod @params
@@ -393,67 +360,138 @@ A chamada final deve ser executada sem um backtick depois de `@params`.
 
 ## Respostas HTTP
 
-O endpoint de classificação pode retornar:
-
 | Código | Significado |
 |---|---|
 | `200` | Classificação concluída |
 | `401` | API Key interna ausente ou inválida |
-| `422` | Título ou descrição inválidos |
-| `503` | Provedor de IA não configurado |
+| `422` | Dados do chamado inválidos |
+| `502` | Provedor retornou uma resposta inválida, incompleta ou recusou a operação |
+| `503` | Provedor indisponível, limitado ou não configurado |
+| `504` | Provedor excedeu o tempo limite |
 
-Outros erros do provedor ainda serão tratados de forma mais específica em uma próxima etapa.
+## Contrato de erro
+
+Falhas previsíveis utilizam:
+
+```json
+{
+  "code": "ai_provider_timeout",
+  "detail": "AI provider timed out.",
+  "retryable": true
+}
+```
+
+### Campos
+
+- `code`: código estável da falha;
+- `detail`: mensagem pública;
+- `retryable`: informa se uma nova tentativa pode fazer sentido.
+
+## Erros tratados
+
+### Provedor não configurado
+
+```json
+{
+  "code": "ai_provider_not_configured",
+  "detail": "AI provider is not configured.",
+  "retryable": false
+}
+```
+
+Código HTTP:
+
+```text
+503 Service Unavailable
+```
+
+### Timeout
+
+```json
+{
+  "code": "ai_provider_timeout",
+  "detail": "AI provider timed out.",
+  "retryable": true
+}
+```
+
+Código HTTP:
+
+```text
+504 Gateway Timeout
+```
+
+### Falha de conexão
+
+```json
+{
+  "code": "ai_provider_unreachable",
+  "detail": "AI provider is temporarily unreachable.",
+  "retryable": true
+}
+```
+
+Código HTTP:
+
+```text
+503 Service Unavailable
+```
+
+### Rate limit
+
+```json
+{
+  "code": "ai_provider_rate_limited",
+  "detail": "AI provider rate limit was reached.",
+  "retryable": true
+}
+```
+
+A resposta também inclui:
+
+```text
+Retry-After: 30
+```
+
+### Resposta inválida
+
+```json
+{
+  "code": "ai_provider_invalid_response",
+  "detail": "AI provider returned an invalid response.",
+  "retryable": false
+}
+```
+
+Código HTTP:
+
+```text
+502 Bad Gateway
+```
 
 ## Estratégias de prompt
 
-O classificador suporta três estratégias.
-
 ### Zero-shot
 
-Utiliza somente:
-
-- identidade do classificador;
-- regras da tarefa;
-- categorias permitidas;
-- prioridades permitidas;
-- critérios de prioridade.
-
-Nenhum exemplo é fornecido ao modelo.
+Utiliza apenas regras e critérios, sem exemplos.
 
 ### One-shot
 
-Utiliza as instruções e uma classificação de exemplo.
-
-O exemplo ajuda o modelo a entender:
-
-- relacionamento entre chamado e classificação;
-- estilo esperado do resumo;
-- seleção de tags;
-- critérios de categoria e prioridade.
+Utiliza um exemplo de chamado e classificação.
 
 ### Few-shot
 
-Utiliza vários exemplos de chamados e classificações.
+Utiliza vários exemplos representando diferentes categorias e prioridades.
 
-Os exemplos atuais incluem:
+O few-shot é o baseline atual do classificador.
 
-- cobrança duplicada;
-- conta bloqueada;
-- indisponibilidade geral do sistema.
-
-O few-shot é utilizado atualmente como baseline padrão do classificador.
-
-A escolha final da estratégia deverá ser baseada em avaliações com chamados representativos.
-
-## Comparar estratégias de prompt
-
-Execute:
+## Comparar estratégias
 
 ```powershell
 python -m scripts.compare_prompt_strategies
 ```
 
-O mesmo chamado será classificado usando:
+O mesmo chamado será classificado com:
 
 ```text
 Mesmo chamado
@@ -463,30 +501,26 @@ Mesmo chamado
     └── Few-shot
 ```
 
-As três estratégias retornam objetos estruturados.
-
 Compare:
 
-- categoria escolhida;
-- coerência da prioridade;
+- categoria;
+- prioridade;
 - fidelidade do resumo;
 - relevância das tags;
-- consistência entre execuções;
-- ausência de informações inventadas.
+- consistência;
+- informações inventadas.
 
-Esse comando realiza três requisições reais e pode consumir créditos da API.
-
-Os testes executados com `pytest` utilizam mocks e não consomem créditos.
+Esse comando realiza três requisições reais e pode consumir créditos.
 
 ## Qualidade do código
 
-Execute todas as verificações com:
+Execute:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\check.ps1
 ```
 
-Também é possível executar cada comando separadamente:
+Ou individualmente:
 
 ```powershell
 ruff check .
@@ -495,7 +529,7 @@ mypy app
 pytest
 ```
 
-Para corrigir automaticamente problemas seguros de lint e formatação:
+Correção automática:
 
 ```powershell
 ruff check . --fix
@@ -506,60 +540,57 @@ Os testes exigem cobertura mínima de 90%.
 
 ## Testes
 
-Os testes automatizados verificam atualmente:
+Os testes verificam:
 
-- disponibilidade da aplicação;
-- prontidão do serviço;
-- autenticação por API Key;
-- respostas para chaves ausentes ou inválidas;
+- disponibilidade e prontidão;
+- autenticação interna;
 - contrato OpenAPI;
-- esquema de segurança da documentação;
-- validação da entrada de chamados;
-- rejeição de títulos e descrições inválidos;
-- serialização do chamado;
-- utilização da estratégia de prompt selecionada;
-- presença dos exemplos esperados nos prompts;
-- retorno estruturado do classificador;
-- rejeição de categorias inválidas;
-- comportamento quando o modelo não retorna um objeto estruturado;
-- proteção do endpoint de classificação;
-- resposta `422` para entradas inválidas;
-- resposta `503` quando a OpenAI não está configurada;
-- resposta estruturada do endpoint.
+- validação dos chamados;
+- estratégias de prompt;
+- saída estruturada;
+- endpoint de classificação;
+- falta de configuração;
+- timeout;
+- falha de conexão;
+- rate limit;
+- autenticação inválida do provedor;
+- indisponibilidade;
+- requisição rejeitada;
+- resposta incompleta;
+- recusa;
+- resposta inválida;
+- respostas HTTP padronizadas;
+- header `Retry-After`.
 
-A integração com a OpenAI é simulada utilizando mocks.
+Os testes:
 
-Os testes executados com `pytest`:
-
-- não utilizam uma chave real;
-- não realizam requisições externas;
-- não consomem créditos da API;
-- não dependem das configurações presentes no `.env`.
-
-Apenas os scripts de smoke test, comparação e testes manuais do endpoint utilizam a API real.
+- não usam uma chave real;
+- não realizam chamadas externas;
+- não consomem créditos;
+- não carregam o `.env` local.
 
 ## Integração contínua
 
-O GitHub Actions executa automaticamente:
+O GitHub Actions executa:
 
 - lint com Ruff;
 - verificação de formatação;
-- análise estática de tipos;
+- análise estática com mypy;
 - testes automatizados;
-- validação da cobertura mínima.
+- validação da cobertura.
 
-O workflow é executado em pushes e pull requests para a branch `main`.
+O workflow é executado em pushes e pull requests para `main`.
 
 ## Segurança
 
-Os seguintes arquivos e dados nunca devem ser enviados ao repositório:
+Nunca envie ao repositório:
 
 - `.env`;
-- chaves da OpenAI API;
-- chaves internas reais;
+- chaves da OpenAI;
+- chaves internas;
 - arquivos de cobertura;
 - ambiente virtual;
-- caches das ferramentas.
+- caches.
 
 O `.gitignore` deve incluir:
 
@@ -575,26 +606,26 @@ __pycache__/
 .ruff_cache/
 ```
 
-O título e a descrição de um chamado são tratados como dados não confiáveis.
+O título e a descrição são tratados como dados não confiáveis.
 
 O classificador é instruído a:
 
-- não seguir comandos presentes no chamado;
-- analisar somente o problema relatado;
-- não inventar impacto ou urgência;
-- respeitar as categorias e prioridades definidas;
-- retornar somente os campos previstos pelo schema.
+- não seguir comandos encontrados no chamado;
+- analisar apenas o problema;
+- não inventar urgência;
+- respeitar os valores permitidos;
+- retornar somente os campos do schema.
 
-Caso uma chave seja exibida em uma captura de tela, commit ou log, ela deve ser substituída imediatamente.
+Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substituída imediatamente.
 
 ## Próximas funcionalidades
 
-- exceções próprias para erros do provedor de IA;
-- tratamento de timeout e falhas de conexão;
-- tratamento de rate limit;
-- tratamento de autenticação inválida da OpenAI;
-- tratamento de recusas e respostas incompletas;
-- respostas HTTP padronizadas para falhas do provedor;
-- avaliação com um conjunto representativo de chamados;
+- conjunto de avaliação com chamados conhecidos;
+- cálculo de acurácia de categoria;
+- cálculo de acurácia de prioridade;
+- comparação quantitativa das estratégias;
 - integração com o backend do HelpDeskLite;
-- observabilidade e logs estruturados.
+- logs estruturados;
+- métricas e observabilidade;
+- política de repetição e circuit breaker;
+- deploy do serviço.

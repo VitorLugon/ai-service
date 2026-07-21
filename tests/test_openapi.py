@@ -44,5 +44,8 @@ def test_openapi_documents_ticket_classification(
     responses = operation["responses"]
 
     assert "200" in responses
+    assert "401" in responses
     assert "422" in responses
+    assert "502" in responses
     assert "503" in responses
+    assert "504" in responses

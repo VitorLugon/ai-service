@@ -1,10 +1,11 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from openai import AsyncOpenAI
 
 from app.core.config import Settings, get_settings
+from app.core.exceptions import AIProviderConfigurationError
 from app.services.ticket_classifier import TicketClassifierService
 
 
@@ -14,18 +15,12 @@ async def get_ticket_classifier(
     """Cria o classificador e gerencia o cliente da OpenAI."""
 
     if settings.openai_api_key is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI provider is not configured.",
-        )
+        raise AIProviderConfigurationError
 
     api_key = settings.openai_api_key.get_secret_value().strip()
 
     if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI provider is not configured.",
-        )
+        raise AIProviderConfigurationError
 
     async with AsyncOpenAI(
         api_key=api_key,

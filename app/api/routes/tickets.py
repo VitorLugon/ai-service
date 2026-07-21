@@ -6,6 +6,7 @@ from app.api.dependencies.ticket_classifier import (
     get_ticket_classifier,
 )
 from app.core.security import verify_api_key
+from app.schemas.errors import ErrorResponse
 from app.schemas.tickets import (
     TicketClassificationInput,
     TicketClassificationResponse,
@@ -24,8 +25,20 @@ router = APIRouter(
     response_model=TicketClassificationResponse,
     status_code=status.HTTP_200_OK,
     responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Invalid or missing internal API key.",
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "model": ErrorResponse,
+            "description": "AI provider returned an invalid response.",
+        },
         status.HTTP_503_SERVICE_UNAVAILABLE: {
-            "description": "AI provider is not configured.",
+            "model": ErrorResponse,
+            "description": "AI provider is unavailable or not configured.",
+        },
+        status.HTTP_504_GATEWAY_TIMEOUT: {
+            "model": ErrorResponse,
+            "description": "AI provider timed out.",
         },
     },
     summary="Classify a support ticket",
