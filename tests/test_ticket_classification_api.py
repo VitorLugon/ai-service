@@ -110,7 +110,7 @@ def test_classify_ticket_returns_503_without_openai_configuration(
         headers={"X-API-Key": api_key},
         json={
             "title": "Erro ao entrar",
-            "description": "Não consigo acessar minha conta com a senha.",
+            "description": ("Não consigo acessar minha conta com a nova senha."),
         },
     )
 
@@ -118,5 +118,5 @@ def test_classify_ticket_returns_503_without_openai_configuration(
     assert response.json() == {
         "code": "ai_provider_not_configured",
         "detail": "AI provider is not configured.",
-        "retryable": "False",
+        "retryable": False,
     }

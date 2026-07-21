@@ -15,12 +15,12 @@ async def get_ticket_classifier(
     """Cria o classificador e gerencia o cliente da OpenAI."""
 
     if settings.openai_api_key is None:
-        raise AIProviderConfigurationError
+        raise AIProviderConfigurationError()
 
     api_key = settings.openai_api_key.get_secret_value().strip()
 
     if not api_key:
-        raise AIProviderConfigurationError
+        raise AIProviderConfigurationError()
 
     async with AsyncOpenAI(
         api_key=api_key,
