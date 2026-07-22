@@ -64,7 +64,7 @@ def test_ticket_classifier_returns_structured_output() -> None:
 
     assert request["model"] == "test-model"
     assert request["text_format"] is TicketClassificationResult
-    assert request["max_output_tokens"] == 500
+    assert request["max_output_tokens"] == 1500
     assert request["store"] is False
     assert '"title": "Erro ao entrar"' in request["input"]
 
@@ -184,3 +184,35 @@ def test_ticket_classifier_rejects_refusal() -> None:
         asyncio.run(
             classifier.classify(create_ticket()),
         )
+
+
+def test_ticket_classifier_uses_one_shot_by_default() -> None:
+    expected_result = TicketClassificationResult(
+        category=TicketCategory.BILLING,
+        priority=TicketPriority.MEDIUM,
+        summary="Cliente recebeu uma cobrança incorreta.",
+        suggested_tags=["cobranca", "pagamento"],
+    )
+
+    client = MagicMock()
+    client.responses.parse = AsyncMock(
+        return_value=SimpleNamespace(
+            status="completed",
+            output=[],
+            output_parsed=expected_result,
+        ),
+    )
+
+    classifier = TicketClassifierService(
+        client=client,
+        model="test-model",
+    )
+
+    asyncio.run(
+        classifier.classify(create_ticket()),
+    )
+
+    request = client.responses.parse.await_args.kwargs
+    instructions = request["instructions"]
+
+    assert instructions.count("<expected_output id=") == 1

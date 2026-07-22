@@ -4,6 +4,7 @@ from pydantic import SecretStr
 
 from app.core.config import Settings, get_settings
 from app.main import app
+from app.prompts.ticket_classification import PromptStrategy
 
 
 def test_readiness_check_returns_ready(
@@ -32,6 +33,9 @@ def test_readiness_check_returns_service_unavailable(
             app_version="0.1.0",
             environment="test",
             internal_api_key=SecretStr("test-internal-api-key"),
+            openai_api_key=None,
+            openai_model="test-model",
+            openai_prompt_strategy=PromptStrategy.ONE_SHOT,
         )
 
     app.dependency_overrides[get_settings] = override_get_invalid_settings

@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.prompts.ticket_classification import PromptStrategy
+
 
 class Settings(BaseSettings):
     """Configurações gerais da aplicação."""
@@ -19,7 +21,8 @@ class Settings(BaseSettings):
     internal_api_key: SecretStr = SecretStr("development-only-key")
 
     openai_api_key: SecretStr | None = None
-    openai_model: str = "gpt-5.5"
+    openai_model: str = "gpt-5-mini"
+    openai_prompt_strategy: PromptStrategy = PromptStrategy.ONE_SHOT
 
 
 @lru_cache

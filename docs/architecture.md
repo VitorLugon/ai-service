@@ -1,0 +1,148 @@
+# Arquitetura
+
+## Visão geral
+
+O AI Service é uma API FastAPI independente para funcionalidades de IA usadas
+por aplicações internas, inicialmente o HelpDeskLite.
+
+```text
+Cliente interno
+        |
+        | HTTP + X-API-Key
+        v
+FastAPI routes
+        |
+        v
+Dependencies
+        |
+        v
+Services
+        |
+        v
+OpenAI Responses API
+```
+
+## Configuração
+
+As configurações ficam em `app/core/config.py` e são carregadas por Pydantic
+Settings. A dependência `get_settings()` usa cache para evitar recriações
+desnecessárias durante a aplicação.
+
+As variáveis relevantes para classificação são:
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-mini
+OPENAI_PROMPT_STRATEGY=one_shot
+```
+
+`OPENAI_PROMPT_STRATEGY` aceita `zero_shot`, `one_shot` e `few_shot`. O baseline
+atual é `one_shot`.
+
+O fluxo da estratégia é:
+
+```text
+OPENAI_PROMPT_STRATEGY
+        |
+        v
+Settings.openai_prompt_strategy
+        |
+        v
+get_ticket_classifier
+        |
+        v
+TicketClassifierService
+        |
+        v
+build_ticket_classification_instructions()
+```
+
+## Classificação
+
+`TicketClassifierService` recebe por injeção:
+
+- cliente assíncrono da OpenAI;
+- modelo;
+- estratégia de prompt.
+
+O service não lê `.env`, não conhece FastAPI e não expõe segredos. Ele chama
+`responses.parse()` com `TicketClassificationResult`, preservando o contrato
+estruturado validado por Pydantic.
+
+## Estratégias
+
+As estratégias ficam em `app/prompts/ticket_classification.py`:
+
+- `zero_shot`: regras sem exemplos;
+- `one_shot`: regras com um exemplo;
+- `few_shot`: regras com vários exemplos.
+
+`one_shot` é o baseline configurado neste ciclo. O relatório real mais recente
+com 12 casos sintéticos e `gpt-5-mini` registrou `zero_shot` com 12/12 de
+acurácia conjunta, enquanto `one_shot` e `few_shot` registraram 11/12. Antes de
+trocar o baseline, o dataset deve ser ampliado e a comparação deve ser repetida.
+
+`zero_shot` e `few_shot` continuam preservados para comparação manual. Não há
+fallback automático entre estratégias.
+
+## Avaliação
+
+O Dia 6 adicionou uma camada de avaliação separada da classificação:
+
+- `app/evaluation/dataset.py` carrega o dataset sintético;
+- `app/schemas/evaluation.py` define `TicketEvaluationCase`,
+  `TicketEvaluationItemResult` e `TicketEvaluationReport`;
+- `app/services/ticket_evaluator.py` calcula as métricas;
+- `scripts/evaluate_ticket_classifier.py` executa avaliações reais.
+
+`TicketEvaluatorService` depende de um `Protocol`, não de uma classe concreta.
+Esse contrato exige apenas:
+
+- propriedade `model`;
+- método assíncrono `classify()`.
+
+Essa separação permite avaliar tanto o classificador real quanto
+classificadores falsos nos testes, sem instanciar `AsyncOpenAI`.
+
+O dataset em `evaluation/tickets.json` é sintético e pequeno. Ele valida
+categorias, prioridades e fronteiras de decisão, mas não substitui uma base
+maior com chamados reais anonimizados.
+
+O relatório `TicketEvaluationReport` inclui:
+
+- modelo;
+- estratégia;
+- total de casos;
+- acertos por categoria;
+- acertos por prioridade;
+- acertos conjuntos;
+- acurácia de categoria;
+- acurácia de prioridade;
+- acurácia conjunta;
+- resultado individual de cada caso.
+
+## Avaliações reais
+
+As avaliações reais usam a OpenAI API e podem consumir créditos:
+
+```powershell
+python -m scripts.evaluate_ticket_classifier --strategy one_shot --limit 2
+python -m scripts.evaluate_ticket_classifier --strategy one_shot
+python -m scripts.evaluate_ticket_classifier --all-strategies
+```
+
+Elas não rodam no GitHub Actions porque dependem de chave real, acesso de rede,
+disponibilidade externa e consumo financeiro. O CI executa somente testes
+determinísticos com mocks e classificadores falsos.
+
+## Testes
+
+Os testes automatizados:
+
+- não leem a chave real;
+- não acessam a internet;
+- não instanciam `AsyncOpenAI` nos testes do evaluator;
+- usam `_env_file=None` para isolar configurações;
+- validam dataset, schemas, evaluator, prompts, API e erros do provedor.
+
+O limite mínimo de cobertura permanece em 90%.

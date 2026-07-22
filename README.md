@@ -111,6 +111,7 @@ INTERNAL_API_KEY=sua-chave-interna
 
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
+OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
 ### Chave interna
@@ -134,9 +135,19 @@ A variável `OPENAI_MODEL` determina o modelo utilizado:
 ```env
 OPENAI_API_KEY=sk-proj-sua-chave
 OPENAI_MODEL=gpt-5-mini
+OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
 O modelo pode ser alterado sem modificar o código-fonte.
+
+A variável `OPENAI_PROMPT_STRATEGY` define a estratégia de prompt. Os valores
+permitidos são:
+
+- `zero_shot`;
+- `one_shot`;
+- `few_shot`.
+
+O baseline atual é `one_shot`.
 
 Nunca coloque uma chave real:
 
@@ -483,9 +494,66 @@ Utiliza um exemplo de chamado e classificação.
 
 Utiliza vários exemplos representando diferentes categorias e prioridades.
 
-O few-shot é o baseline atual do classificador.
+O one-shot é o baseline configurado atualmente. A comparação real mais recente
+com 12 casos sintéticos deve ser acompanhada antes de promover mudanças de
+baseline, porque pequenas alterações de prompt podem mudar o ranking entre
+estratégias.
 
 ## Comparar estratégias
+
+Primeiro, execute um teste econômico:
+
+```powershell
+python -m scripts.evaluate_ticket_classifier --strategy one_shot --limit 2
+```
+
+Depois, execute a avaliação completa do baseline:
+
+```powershell
+python -m scripts.evaluate_ticket_classifier --strategy one_shot
+```
+
+Para comparar todas as estratégias:
+
+```powershell
+python -m scripts.evaluate_ticket_classifier --all-strategies
+```
+
+O relatório é salvo em:
+
+```text
+reports/ticket-classification-evaluation.json
+```
+
+As métricas calculadas são:
+
+- acurácia de categoria;
+- acurácia de prioridade;
+- acurácia conjunta, quando categoria e prioridade estão corretas no mesmo caso.
+
+Resultado mais recente registrado em
+`reports/ticket-classification-evaluation.json` com `gpt-5-mini` e 12 casos
+sintéticos:
+
+| Estratégia | Categoria | Prioridade | Conjunto |
+|---|---:|---:|---:|
+| `zero_shot` | 12/12, 100% | 12/12, 100% | 12/12, 100% |
+| `one_shot` | 11/12, 91,67% | 12/12, 100% | 11/12, 91,67% |
+| `few_shot` | 11/12, 91,67% | 12/12, 100% | 11/12, 91,67% |
+
+Apesar de `one_shot` continuar como baseline configurado neste ciclo, o
+resultado mais recente favorece `zero_shot`. Antes de trocar o baseline, rode a
+comparação novamente e amplie o dataset.
+
+O dataset ainda é pequeno e sintético. Ele serve para acompanhar regressões e
+comparar mudanças de prompt, não como medida definitiva de qualidade em
+produção.
+
+Esses comandos usam a API real da OpenAI e podem consumir créditos. Os testes
+automatizados usam classificadores falsos, mocks e respostas determinísticas;
+eles não acessam a OpenAI.
+
+Também existe um script de comparação qualitativa com um único chamado:
 
 ```powershell
 python -m scripts.compare_prompt_strategies

@@ -30,4 +30,5 @@ async def get_ticket_classifier(
         yield TicketClassifierService(
             client=client,
             model=settings.openai_model,
+            prompt_strategy=settings.openai_prompt_strategy,
         )

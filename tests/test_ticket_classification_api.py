@@ -1,18 +1,55 @@
-from unittest.mock import AsyncMock, MagicMock
+import asyncio
+from collections.abc import AsyncIterator
+from types import TracebackType
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app.api.dependencies.ticket_classifier import (
     get_ticket_classifier,
 )
+from app.core.config import Settings
 from app.main import app
+from app.prompts.ticket_classification import PromptStrategy
 from app.schemas.tickets import (
     TicketCategory,
     TicketClassificationResult,
     TicketPriority,
 )
 from app.services.ticket_classifier import TicketClassifierService
+
+
+class FakeAsyncOpenAI:
+    """Cliente OpenAI falso para validar injecao sem rede."""
+
+    def __init__(self, **_: object) -> None:
+        pass
+
+    async def __aenter__(self) -> object:
+        return object()
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        pass
+
+
+async def resolve_ticket_classifier(
+    settings: Settings,
+) -> TicketClassifierService:
+    dependency = get_ticket_classifier(settings)
+
+    assert isinstance(dependency, AsyncIterator)
+
+    async for classifier in dependency:
+        return classifier
+
+    raise AssertionError("Dependency did not yield a classifier.")
 
 
 def test_classify_ticket_returns_structured_response(
@@ -120,3 +157,27 @@ def test_classify_ticket_returns_503_without_openai_configuration(
         "detail": "AI provider is not configured.",
         "retryable": False,
     }
+
+
+def test_ticket_classifier_dependency_uses_configured_prompt_strategy() -> None:
+    settings = Settings(
+        _env_file=None,
+        app_name="AI Service",
+        app_version="0.1.0",
+        environment="test",
+        internal_api_key=SecretStr("test-internal-api-key"),
+        openai_api_key=SecretStr("test-openai-api-key"),
+        openai_model="test-model",
+        openai_prompt_strategy=PromptStrategy.ZERO_SHOT,
+    )
+
+    with patch(
+        "app.api.dependencies.ticket_classifier.AsyncOpenAI",
+        FakeAsyncOpenAI,
+    ):
+        classifier = asyncio.run(
+            resolve_ticket_classifier(settings),
+        )
+
+    assert classifier.model == "test-model"
+    assert classifier._prompt_strategy is PromptStrategy.ZERO_SHOT

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "auth-password-reset-blocked",
+    "ticket": {
+      "title": "Senha redefinida, mas acesso continua bloqueado",
+      "description": "Redefini minha senha duas vezes e ainda não consigo entrar no painel administrativo."
+    },
+    "expected_category": "acesso_e_autenticacao",
+    "expected_priority": "alta",
+    "rationale": "O usuário está bloqueado em uma função importante e não informou uma alternativa."
+  },
+  {
+    "id": "auth-mfa-question",
+    "ticket": {
+      "title": "Como ativar autenticação em duas etapas?",
+      "description": "Gostaria de saber onde encontro a opção para habilitar autenticação em duas etapas."
+    },
+    "expected_category": "acesso_e_autenticacao",
+    "expected_priority": "baixa",
+    "rationale": "É uma dúvida de configuração sem bloqueio ou indisponibilidade."
+  },
+  {
+    "id": "auth-suspected-admin-compromise",
+    "ticket": {
+      "title": "Possível invasão da conta de administrador",
+      "description": "Foram registrados acessos desconhecidos na conta principal e alterações que ninguém da equipe realizou."
+    },
+    "expected_category": "acesso_e_autenticacao",
+    "expected_priority": "critica",
+    "rationale": "Há possível comprometimento de uma conta privilegiada e risco de segurança."
+  },
+  {
+    "id": "technical-export-empty",
+    "ticket": {
+      "title": "Arquivo exportado fica vazio",
+      "description": "O relatório aparece na tela, mas o PDF exportado fica vazio. Podemos copiar os dados manualmente."
+    },
+    "expected_category": "erro_tecnico",
+    "expected_priority": "media",
+    "rationale": "Existe uma falha técnica, mas há uma alternativa manual disponível."
+  },
+  {
+    "id": "technical-mobile-crash",
+    "ticket": {
+      "title": "Aplicativo fecha ao abrir notificações",
+      "description": "O aplicativo fecha sempre que abro a tela de notificações, mas as outras funções continuam disponíveis."
+    },
+    "expected_category": "erro_tecnico",
+    "expected_priority": "media",
+    "rationale": "Uma função está indisponível, mas o restante do sistema continua funcionando."
+  },
+  {
+    "id": "technical-system-wide-outage",
+    "ticket": {
+      "title": "Portal fora do ar para todos os clientes",
+      "description": "Nenhum cliente consegue acessar o portal e todas as páginas retornam erro de servidor."
+    },
+    "expected_category": "erro_tecnico",
+    "expected_priority": "critica",
+    "rationale": "Existe indisponibilidade ampla de uma operação essencial."
+  },
+  {
+    "id": "billing-wrong-plan",
+    "ticket": {
+      "title": "Plano incorreto na fatura",
+      "description": "A fatura veio com o plano empresarial, mas nossa assinatura atual é do plano básico."
+    },
+    "expected_category": "cobranca",
+    "expected_priority": "media",
+    "rationale": "Há um erro financeiro que precisa ser corrigido, mas não foi informado bloqueio imediato."
+  },
+  {
+    "id": "billing-payment-suspended",
+    "ticket": {
+      "title": "Pagamento aprovado, mas conta foi suspensa",
+      "description": "O pagamento foi confirmado pelo banco, porém nossa conta foi suspensa e a equipe não consegue trabalhar."
+    },
+    "expected_category": "cobranca",
+    "expected_priority": "alta",
+    "rationale": "O problema está relacionado ao pagamento e bloqueia a equipe."
+  },
+  {
+    "id": "usage-export-instructions",
+    "ticket": {
+      "title": "Como exportar uma lista de usuários?",
+      "description": "Preciso saber quais passos devo seguir para exportar os usuários cadastrados para CSV."
+    },
+    "expected_category": "duvida_de_uso",
+    "expected_priority": "baixa",
+    "rationale": "É uma dúvida de utilização sem falha ou bloqueio."
+  },
+  {
+    "id": "usage-filter-question",
+    "ticket": {
+      "title": "Dúvida sobre filtros do relatório",
+      "description": "Não entendi como combinar os filtros de período e departamento na tela de relatórios."
+    },
+    "expected_category": "duvida_de_uso",
+    "expected_priority": "baixa",
+    "rationale": "É uma solicitação de orientação sobre uma funcionalidade existente."
+  },
+  {
+    "id": "request-custom-field",
+    "ticket": {
+      "title": "Adicionar novo campo ao formulário",
+      "description": "Gostaríamos de adicionar um campo de centro de custo ao cadastro de novos colaboradores."
+    },
+    "expected_category": "solicitacao",
+    "expected_priority": "baixa",
+    "rationale": "É uma solicitação de melhoria sem urgência ou bloqueio."
+  },
+  {
+    "id": "other-insufficient-information",
+    "ticket": {
+      "title": "Preciso de ajuda urgente",
+      "description": "Está dando problema e eu preciso que alguém resolva isso para mim o quanto antes."
+    },
+    "expected_category": "outro",
+    "expected_priority": "baixa",
+    "rationale": "O chamado não possui detalhes suficientes para determinar categoria ou impacto."
+  }
+]

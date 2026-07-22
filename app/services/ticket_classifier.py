@@ -32,7 +32,7 @@ class TicketClassifierService:
         self,
         client: AsyncOpenAI,
         model: str,
-        prompt_strategy: PromptStrategy = PromptStrategy.FEW_SHOT,
+        prompt_strategy: PromptStrategy = PromptStrategy.ONE_SHOT,
     ) -> None:
         self._client = client
         self._model = model
@@ -58,7 +58,7 @@ class TicketClassifierService:
                 ),
                 input=self._serialize_ticket(ticket),
                 text_format=TicketClassificationResult,
-                max_output_tokens=500,
+                max_output_tokens=1500,
                 store=False,
             )
         except openai.APITimeoutError as exc:

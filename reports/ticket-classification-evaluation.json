@@ -1,0 +1,401 @@
+[
+  {
+    "model": "gpt-5-mini",
+    "strategy": "zero_shot",
+    "total_cases": 12,
+    "category_correct_count": 12,
+    "priority_correct_count": 12,
+    "joint_correct_count": 12,
+    "category_accuracy": 1.0,
+    "priority_accuracy": 1.0,
+    "joint_accuracy": 1.0,
+    "results": [
+      {
+        "case_id": "auth-password-reset-blocked",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "auth-mfa-question",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "auth-suspected-admin-compromise",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-export-empty",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-mobile-crash",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-system-wide-outage",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-wrong-plan",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-payment-suspended",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-export-instructions",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-filter-question",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "request-custom-field",
+        "expected_category": "solicitacao",
+        "predicted_category": "solicitacao",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "other-insufficient-information",
+        "expected_category": "outro",
+        "predicted_category": "outro",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      }
+    ]
+  },
+  {
+    "model": "gpt-5-mini",
+    "strategy": "one_shot",
+    "total_cases": 12,
+    "category_correct_count": 11,
+    "priority_correct_count": 12,
+    "joint_correct_count": 11,
+    "category_accuracy": 0.9166666666666666,
+    "priority_accuracy": 1.0,
+    "joint_accuracy": 0.9166666666666666,
+    "results": [
+      {
+        "case_id": "auth-password-reset-blocked",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "auth-mfa-question",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": false,
+        "priority_correct": true,
+        "joint_correct": false
+      },
+      {
+        "case_id": "auth-suspected-admin-compromise",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-export-empty",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-mobile-crash",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-system-wide-outage",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-wrong-plan",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-payment-suspended",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-export-instructions",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-filter-question",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "request-custom-field",
+        "expected_category": "solicitacao",
+        "predicted_category": "solicitacao",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "other-insufficient-information",
+        "expected_category": "outro",
+        "predicted_category": "outro",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      }
+    ]
+  },
+  {
+    "model": "gpt-5-mini",
+    "strategy": "few_shot",
+    "total_cases": 12,
+    "category_correct_count": 11,
+    "priority_correct_count": 12,
+    "joint_correct_count": 11,
+    "category_accuracy": 0.9166666666666666,
+    "priority_accuracy": 1.0,
+    "joint_accuracy": 0.9166666666666666,
+    "results": [
+      {
+        "case_id": "auth-password-reset-blocked",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "auth-mfa-question",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": false,
+        "priority_correct": true,
+        "joint_correct": false
+      },
+      {
+        "case_id": "auth-suspected-admin-compromise",
+        "expected_category": "acesso_e_autenticacao",
+        "predicted_category": "acesso_e_autenticacao",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-export-empty",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-mobile-crash",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "technical-system-wide-outage",
+        "expected_category": "erro_tecnico",
+        "predicted_category": "erro_tecnico",
+        "expected_priority": "critica",
+        "predicted_priority": "critica",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-wrong-plan",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "media",
+        "predicted_priority": "media",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "billing-payment-suspended",
+        "expected_category": "cobranca",
+        "predicted_category": "cobranca",
+        "expected_priority": "alta",
+        "predicted_priority": "alta",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-export-instructions",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "usage-filter-question",
+        "expected_category": "duvida_de_uso",
+        "predicted_category": "duvida_de_uso",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "request-custom-field",
+        "expected_category": "solicitacao",
+        "predicted_category": "solicitacao",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      },
+      {
+        "case_id": "other-insufficient-information",
+        "expected_category": "outro",
+        "predicted_category": "outro",
+        "expected_priority": "baixa",
+        "predicted_priority": "baixa",
+        "category_correct": true,
+        "priority_correct": true,
+        "joint_correct": true
+      }
+    ]
+  }
+]
