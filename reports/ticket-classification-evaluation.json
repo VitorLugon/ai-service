@@ -3,12 +3,12 @@
     "model": "gpt-5-mini",
     "strategy": "zero_shot",
     "total_cases": 12,
-    "category_correct_count": 12,
+    "category_correct_count": 11,
     "priority_correct_count": 12,
-    "joint_correct_count": 12,
-    "category_accuracy": 1.0,
+    "joint_correct_count": 11,
+    "category_accuracy": 0.9166666666666666,
     "priority_accuracy": 1.0,
-    "joint_accuracy": 1.0,
+    "joint_accuracy": 0.9166666666666666,
     "results": [
       {
         "case_id": "auth-password-reset-blocked",
@@ -23,12 +23,12 @@
       {
         "case_id": "auth-mfa-question",
         "expected_category": "acesso_e_autenticacao",
-        "predicted_category": "acesso_e_autenticacao",
+        "predicted_category": "duvida_de_uso",
         "expected_priority": "baixa",
         "predicted_priority": "baixa",
-        "category_correct": true,
+        "category_correct": false,
         "priority_correct": true,
-        "joint_correct": true
+        "joint_correct": false
       },
       {
         "case_id": "auth-suspected-admin-compromise",

@@ -50,3 +50,39 @@ def test_all_prompts_define_allowed_labels() -> None:
         assert "media" in instructions
         assert "alta" in instructions
         assert "critica" in instructions
+
+
+def test_one_shot_prompt_defines_access_authentication_boundaries() -> None:
+    instructions = build_ticket_classification_instructions(
+        PromptStrategy.ONE_SHOT,
+    ).lower()
+
+    assert "autenticação multifator" in instructions
+    assert "mfa" in instructions
+    assert "permissões" in instructions
+    assert "acesso_e_autenticacao" in instructions
+
+
+def test_prompt_defines_high_and_critical_priority_boundary() -> None:
+    instructions = build_ticket_classification_instructions(
+        PromptStrategy.ONE_SHOT,
+    ).lower()
+
+    assert "impacto amplo" in instructions
+    assert "risco de segurança" in instructions
+    assert "perda de dados" in instructions
+    assert "escolha alta" in instructions
+
+
+def test_few_shot_contains_more_examples_than_one_shot() -> None:
+    one_shot = build_ticket_classification_instructions(
+        PromptStrategy.ONE_SHOT,
+    )
+    few_shot = build_ticket_classification_instructions(
+        PromptStrategy.FEW_SHOT,
+    )
+
+    assert one_shot.count("<expected_output id=") == 1
+    assert few_shot.count("<expected_output id=") > one_shot.count(
+        "<expected_output id=",
+    )

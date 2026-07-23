@@ -45,10 +45,10 @@ O fluxo da estratégia é:
 OPENAI_PROMPT_STRATEGY
         |
         v
-Settings.openai_prompt_strategy
+Settings
         |
         v
-get_ticket_classifier
+PromptStrategy
         |
         v
 TicketClassifierService
@@ -56,6 +56,20 @@ TicketClassifierService
         v
 build_ticket_classification_instructions()
 ```
+
+Na API, `get_ticket_classifier` lê `Settings.openai_prompt_strategy` e entrega
+essa estratégia ao `TicketClassifierService`.
+
+## Estrutura de documentação
+
+```text
+docs/
+├── architecture.md
+└── evaluation.md
+```
+
+`docs/evaluation.md` registra o dataset sintético, métricas, resultados reais,
+casos divergentes, ambiguidades e próximos passos.
 
 ## Classificação
 
@@ -78,9 +92,9 @@ As estratégias ficam em `app/prompts/ticket_classification.py`:
 - `few_shot`: regras com vários exemplos.
 
 `one_shot` é o baseline configurado neste ciclo. O relatório real mais recente
-com 12 casos sintéticos e `gpt-5-mini` registrou `zero_shot` com 12/12 de
-acurácia conjunta, enquanto `one_shot` e `few_shot` registraram 11/12. Antes de
-trocar o baseline, o dataset deve ser ampliado e a comparação deve ser repetida.
+com 12 casos sintéticos e `gpt-5-mini` registrou empate entre as três
+estratégias: 11/12 de acurácia conjunta. Antes de trocar o baseline, o dataset
+deve ser ampliado e a comparação deve ser repetida.
 
 `zero_shot` e `few_shot` continuam preservados para comparação manual. Não há
 fallback automático entre estratégias.
@@ -103,6 +117,24 @@ Esse contrato exige apenas:
 
 Essa separação permite avaliar tanto o classificador real quanto
 classificadores falsos nos testes, sem instanciar `AsyncOpenAI`.
+
+O fluxo de avaliação é:
+
+```text
+evaluation/tickets.json
+        |
+        v
+load_ticket_evaluation_cases
+        |
+        v
+TicketEvaluatorService
+        |
+        v
+TicketClassifierService
+        |
+        v
+TicketEvaluationReport
+```
 
 O dataset em `evaluation/tickets.json` é sintético e pequeno. Ele valida
 categorias, prioridades e fronteiras de decisão, mas não substitui uma base
@@ -131,9 +163,10 @@ python -m scripts.evaluate_ticket_classifier --strategy one_shot
 python -m scripts.evaluate_ticket_classifier --all-strategies
 ```
 
-Elas não rodam no GitHub Actions porque dependem de chave real, acesso de rede,
-disponibilidade externa e consumo financeiro. O CI executa somente testes
-determinísticos com mocks e classificadores falsos.
+Elas não rodam no GitHub Actions porque dependem de chave secreta, acesso de
+rede, disponibilidade externa, possível variação entre execuções e consumo
+financeiro. Nesta fase, esses fatores não devem bloquear a integração contínua.
+O CI executa somente testes determinísticos com mocks e classificadores falsos.
 
 ## Testes
 

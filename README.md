@@ -66,6 +66,8 @@ ai-service/
 ```
 
 A descrição completa está em [`docs/architecture.md`](docs/architecture.md).
+Os resultados e limites da avaliação estão em
+[`docs/evaluation.md`](docs/evaluation.md).
 
 ## Requisitos
 
@@ -133,7 +135,7 @@ A variável `OPENAI_API_KEY` deve receber uma chave válida da OpenAI API.
 A variável `OPENAI_MODEL` determina o modelo utilizado:
 
 ```env
-OPENAI_API_KEY=sk-proj-sua-chave
+OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
@@ -537,13 +539,13 @@ sintéticos:
 
 | Estratégia | Categoria | Prioridade | Conjunto |
 |---|---:|---:|---:|
-| `zero_shot` | 12/12, 100% | 12/12, 100% | 12/12, 100% |
+| `zero_shot` | 11/12, 91,67% | 12/12, 100% | 11/12, 91,67% |
 | `one_shot` | 11/12, 91,67% | 12/12, 100% | 11/12, 91,67% |
 | `few_shot` | 11/12, 91,67% | 12/12, 100% | 11/12, 91,67% |
 
-Apesar de `one_shot` continuar como baseline configurado neste ciclo, o
-resultado mais recente favorece `zero_shot`. Antes de trocar o baseline, rode a
-comparação novamente e amplie o dataset.
+As três estratégias empataram nessa execução. Como `one_shot` já é o baseline
+configurado e `few_shot` tende a consumir mais tokens por incluir mais exemplos,
+o baseline permanece `one_shot` até que um dataset maior sustente outra decisão.
 
 O dataset ainda é pequeno e sintético. Ele serve para acompanhar regressões e
 comparar mudanças de prompt, não como medida definitiva de qualidade em

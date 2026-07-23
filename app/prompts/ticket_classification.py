@@ -36,6 +36,11 @@ Você classifica chamados de suporte do sistema HelpDeskLite.
 - solicitacao
 - outro
 
+# Critérios de categoria
+
+- acesso_e_autenticacao: login, senha, autenticação multifator ou MFA,
+  permissões, contas bloqueadas e recuperação de acesso.
+
 # Prioridades
 
 - baixa
