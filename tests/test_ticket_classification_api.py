@@ -168,6 +168,7 @@ def test_ticket_classifier_dependency_uses_configured_prompt_strategy() -> None:
         internal_api_key=SecretStr("test-internal-api-key"),
         openai_api_key=SecretStr("test-openai-api-key"),
         openai_model="test-model",
+        openai_embedding_model="test-embedding-model",
         openai_prompt_strategy=PromptStrategy.ZERO_SHOT,
     )
 

@@ -35,6 +35,7 @@ def test_readiness_check_returns_service_unavailable(
             internal_api_key=SecretStr("test-internal-api-key"),
             openai_api_key=None,
             openai_model="test-model",
+            openai_embedding_model="test-embedding-model",
             openai_prompt_strategy=PromptStrategy.ONE_SHOT,
         )
 

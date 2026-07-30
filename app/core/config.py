@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
     openai_prompt_strategy: PromptStrategy = PromptStrategy.ONE_SHOT
 
 

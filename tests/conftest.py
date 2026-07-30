@@ -31,6 +31,7 @@ def client() -> Iterator[TestClient]:
             internal_api_key=SecretStr(TEST_API_KEY),
             openai_api_key=None,
             openai_model="test-model",
+            openai_embedding_model="test-embedding-model",
             openai_prompt_strategy=PromptStrategy.ONE_SHOT,
         )
 

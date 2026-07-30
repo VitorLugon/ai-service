@@ -33,6 +33,7 @@ As variáveis relevantes para classificação são:
 ```env
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
@@ -179,3 +180,52 @@ Os testes automatizados:
 - validam dataset, schemas, evaluator, prompts, API e erros do provedor.
 
 O limite mínimo de cobertura permanece em 90%.
+
+## Busca semântica
+
+A Semana 3 introduz embeddings para representar chamados e artigos da base de
+conhecimento como vetores numéricos.
+
+A lógica inicial segue o fluxo:
+
+```text
+Texto
+        |
+        v
+Embedding
+        |
+        v
+cosine_similarity
+        |
+        v
+Pontuação de relevância
+```
+
+O modelo de embeddings é configurável por:
+
+```env
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+A função `cosine_similarity`, em `app/core/vector_math.py`, é independente da
+OpenAI, da camada HTTP, de Pydantic Settings e de variáveis de ambiente. Ela
+calcula a pontuação por produto escalar e norma dos vetores, rejeitando entradas
+vazias, dimensões diferentes e vetores nulos.
+
+A integração real com embeddings está disponível inicialmente por meio de:
+
+```powershell
+python -m scripts.embedding_smoke_test
+```
+
+Esse smoke test usa a API real e não é executado pelo `pytest`. Posteriormente,
+a geração de embeddings deve ser encapsulada em um service específico e usada
+por um índice da base de conhecimento.
+
+Esta etapa ainda não inclui:
+
+- banco vetorial;
+- endpoint de busca semântica;
+- pipeline RAG;
+- geração de resposta baseada em documentos;
+- base de conhecimento definitiva.

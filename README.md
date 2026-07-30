@@ -113,6 +113,7 @@ INTERNAL_API_KEY=sua-chave-interna
 
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
@@ -137,10 +138,12 @@ A variável `OPENAI_MODEL` determina o modelo utilizado:
 ```env
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
 O modelo pode ser alterado sem modificar o código-fonte.
+`OPENAI_EMBEDDING_MODEL` define o modelo utilizado para gerar embeddings.
 
 A variável `OPENAI_PROMPT_STRATEGY` define a estratégia de prompt. Os valores
 permitidos são:
@@ -235,6 +238,27 @@ Resposta: ok
 ```
 
 Esse comando utiliza a API real e pode consumir créditos.
+
+## Testar embeddings
+
+Embeddings representam textos como vetores numéricos. A Semana 3 introduz a
+base para busca semântica comparando esses vetores com similaridade de cosseno.
+Ainda não há endpoint de busca, banco vetorial ou resposta final de um sistema
+RAG.
+
+Configure o `.env` e execute:
+
+```powershell
+python -m scripts.embedding_smoke_test
+```
+
+O smoke test envia textos sintéticos para a API real, usa o modelo definido em
+`OPENAI_EMBEDDING_MODEL` e compara se dois textos sobre acesso/senha ficam mais
+próximos entre si do que de um texto sobre alteração de plano.
+
+Esse comando pode consumir créditos e não faz parte do `pytest`. Os testes
+automatizados usam matemática vetorial local e mocks; eles não acessam a
+OpenAI.
 
 ## Classificação de chamados
 
@@ -694,6 +718,9 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 - cálculo de acurácia de categoria;
 - cálculo de acurácia de prioridade;
 - comparação quantitativa das estratégias;
+- geração de embeddings para busca semântica;
+- comparação vetorial por similaridade de cosseno;
+- futura recuperação de artigos da base de conhecimento;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
 - métricas e observabilidade;
