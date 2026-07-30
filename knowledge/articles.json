@@ -1,0 +1,146 @@
+[
+  {
+    "id": "recover-account-access",
+    "title": "Como recuperar o acesso à conta",
+    "content": "Use a opção Esqueci minha senha na tela de login para solicitar um link de recuperação ao e-mail cadastrado. O link expira por segurança, então confirme se a conta está ativa e se o e-mail informado é o correto antes de pedir um novo envio.",
+    "category": "acesso_e_autenticacao",
+    "keywords": [
+      "senha",
+      "login",
+      "recuperação de acesso",
+      "conta bloqueada"
+    ]
+  },
+  {
+    "id": "configure-multi-factor-authentication",
+    "title": "Como configurar autenticação em duas etapas",
+    "content": "Acesse as configurações de segurança do perfil e abra a seção Segurança. Ative a autenticação em duas etapas, vincule um aplicativo autenticador e confirme o código exibido para concluir a configuração de MFA na conta.",
+    "category": "acesso_e_autenticacao",
+    "keywords": [
+      "mfa",
+      "autenticação multifator",
+      "segurança",
+      "código de verificação"
+    ]
+  },
+  {
+    "id": "resolve-empty-exported-pdf",
+    "title": "Relatório exportado para PDF fica vazio",
+    "content": "Quando o PDF exportado ficar vazio, confira se os filtros selecionados retornam dados no período informado. Limpe o cache do navegador, teste a exportação em outro navegador e registre o horário da falha para facilitar a análise técnica.",
+    "category": "erro_tecnico",
+    "keywords": [
+      "pdf vazio",
+      "exportação",
+      "relatório",
+      "navegador"
+    ]
+  },
+  {
+    "id": "resolve-mobile-notification-crash",
+    "title": "Aplicativo fecha ao abrir as notificações",
+    "content": "Se o aplicativo fechar ao abrir notificações, atualize para a versão mais recente, reinicie o dispositivo e limpe o cache do aplicativo. Enquanto a falha é investigada, use as demais funções disponíveis para continuar o atendimento.",
+    "category": "erro_tecnico",
+    "keywords": [
+      "aplicativo fecha",
+      "notificações",
+      "falha mobile",
+      "cache"
+    ]
+  },
+  {
+    "id": "payment-approved-account-suspended",
+    "title": "Pagamento aprovado, mas a conta continua suspensa",
+    "content": "Quando o pagamento já foi aprovado pelo banco e a conta segue suspensa, confirme a associação da transação à assinatura. Informe o número da fatura, a data do pagamento e envie o comprovante para conciliação antes da reativação da conta.",
+    "category": "cobranca",
+    "keywords": [
+      "pagamento aprovado",
+      "conta suspensa",
+      "fatura",
+      "reativação"
+    ]
+  },
+  {
+    "id": "incorrect-plan-on-invoice",
+    "title": "Plano incorreto informado na fatura",
+    "content": "Compare o plano cobrado com o período da fatura e consulte o histórico de alterações da assinatura. Verifique a data de renovação, possíveis cobranças proporcionais e encaminhe o caso para revisão da equipe financeira.",
+    "category": "cobranca",
+    "keywords": [
+      "plano incorreto",
+      "fatura",
+      "assinatura",
+      "cobrança"
+    ]
+  },
+  {
+    "id": "export-users-to-csv",
+    "title": "Como exportar usuários para um arquivo CSV",
+    "content": "Na área de administração, acesse a seção Usuários e selecione a opção Exportar para gerar um arquivo CSV. A lista pode respeitar filtros aplicados, e a ação depende das permissões atribuídas ao perfil do usuário.",
+    "category": "duvida_de_uso",
+    "keywords": [
+      "exportar usuários",
+      "csv",
+      "administração",
+      "lista de usuários"
+    ]
+  },
+  {
+    "id": "combine-report-filters",
+    "title": "Como combinar filtros nos relatórios",
+    "content": "Nos relatórios, os filtros de período, departamento e status podem ser aplicados em conjunto para refinar a consulta. Use Limpar filtros para retornar à visualização inicial antes de montar uma nova combinação.",
+    "category": "duvida_de_uso",
+    "keywords": [
+      "filtros",
+      "relatório",
+      "período",
+      "departamento"
+    ]
+  },
+  {
+    "id": "request-custom-registration-field",
+    "title": "Solicitar um novo campo no formulário de cadastro",
+    "content": "Para solicitar um novo campo no formulário de cadastro, informe o nome desejado, a finalidade, os perfis que poderão acessar a informação e se o preenchimento será obrigatório. A solicitação será avaliada quanto a impacto e privacidade.",
+    "category": "solicitacao",
+    "keywords": [
+      "novo campo",
+      "formulário",
+      "melhoria",
+      "cadastro"
+    ]
+  },
+  {
+    "id": "request-dashboard-widget",
+    "title": "Solicitar um novo indicador no dashboard",
+    "content": "Ao pedir um novo indicador no dashboard, descreva a métrica desejada, a origem dos dados, os filtros necessários e os usuários que utilizarão o recurso. Inclua um exemplo de cálculo e a decisão que o indicador deve apoiar.",
+    "category": "solicitacao",
+    "keywords": [
+      "dashboard",
+      "novo indicador",
+      "métrica",
+      "melhoria"
+    ]
+  },
+  {
+    "id": "provide-complete-ticket-information",
+    "title": "Como registrar um chamado com informações completas",
+    "content": "Um chamado completo deve informar a ação tentada, o resultado esperado, o resultado observado e quando o problema começou. Inclua mensagens de erro, usuários afetados e alternativas disponíveis para acelerar a triagem.",
+    "category": "outro",
+    "keywords": [
+      "abrir chamado",
+      "informações do problema",
+      "mensagem de erro",
+      "contexto"
+    ]
+  },
+  {
+    "id": "identify-unsupported-request",
+    "title": "Como encaminhar uma solicitação que não possui categoria",
+    "content": "Quando uma solicitação não se encaixa nas categorias existentes, registre o máximo de contexto possível e encaminhe para triagem geral. A equipe pode pedir informações adicionais antes de definir a categoria adequada.",
+    "category": "outro",
+    "keywords": [
+      "triagem",
+      "sem categoria",
+      "encaminhamento",
+      "informações adicionais"
+    ]
+  }
+]

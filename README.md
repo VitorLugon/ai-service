@@ -26,6 +26,10 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - respostas HTTP padronizadas;
 - documentação automática com OpenAPI e Swagger UI;
 - testes automatizados sem consumo da API;
+- base de conhecimento sintética e versionada;
+- validação de artigos com Pydantic;
+- categorias e palavras-chave para artigos;
+- representação textual estável para embeddings;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -56,11 +60,13 @@ ai-service/
 │   │   ├── exception_handlers.py
 │   │   └── router.py
 │   ├── core/              # Configurações, segurança e exceções
+│   ├── knowledge/         # Carregamento e texto da base de conhecimento
 │   ├── prompts/           # Estratégias e instruções
 │   ├── schemas/           # Contratos Pydantic
 │   ├── services/          # Regras e integrações
 │   └── main.py            # Criação da aplicação
 ├── docs/                  # Documentação da arquitetura
+├── knowledge/             # Base de conhecimento sintética
 ├── scripts/               # Instalação, execução e smoke tests
 └── tests/                 # Testes automatizados
 ```
@@ -259,6 +265,35 @@ próximos entre si do que de um texto sobre alteração de plano.
 Esse comando pode consumir créditos e não faz parte do `pytest`. Os testes
 automatizados usam matemática vetorial local e mocks; eles não acessam a
 OpenAI.
+
+## Base de conhecimento
+
+A base sintética está em:
+
+```text
+knowledge/articles.json
+```
+
+Cada artigo possui:
+
+- identificador;
+- título;
+- conteúdo;
+- categoria;
+- palavras-chave.
+
+Para validar e inspecionar:
+
+```powershell
+python -m scripts.inspect_knowledge_base
+```
+
+Os artigos são sintéticos e não contêm dados reais. O ID técnico identifica o
+artigo no arquivo, mas não entra no texto usado para embeddings. A representação
+textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem.
+
+Nesta etapa, embeddings ainda não são armazenados. Também não existe banco
+vetorial, endpoint de busca ou resposta RAG.
 
 ## Classificação de chamados
 

@@ -229,3 +229,66 @@ Esta etapa ainda não inclui:
 - pipeline RAG;
 - geração de resposta baseada em documentos;
 - base de conhecimento definitiva.
+
+## Base de conhecimento
+
+A base de conhecimento sintética fica em:
+
+```text
+knowledge/articles.json
+```
+
+Ela é carregada e preparada para indexação futura pelo fluxo:
+
+```text
+knowledge/articles.json
+        |
+        v
+load_knowledge_articles
+        |
+        v
+KnowledgeArticle
+        |
+        v
+build_knowledge_article_embedding_text
+```
+
+A estrutura relacionada é:
+
+```text
+app/
+├── knowledge/
+│   ├── loader.py
+│   └── text.py
+└── schemas/
+    └── knowledge.py
+
+knowledge/
+└── articles.json
+```
+
+`KnowledgeArticle` define o contrato dos artigos. Ele rejeita campos extras,
+valida IDs em kebab-case minúsculo, normaliza espaços de título e conteúdo, e
+normaliza palavras-chave para letras minúsculas. Keywords vazias são rejeitadas,
+duplicatas são removidas preservando a primeira ocorrência e cada artigo deve
+possuir ao menos uma palavra-chave.
+
+`load_knowledge_articles` lê o arquivo local em UTF-8, valida a lista com
+Pydantic, rejeita base vazia e rejeita IDs duplicados. Erros legítimos de JSON,
+arquivo ou schema são preservados.
+
+`build_knowledge_article_embedding_text` produz uma representação textual em
+ordem estável:
+
+```text
+Título
+Categoria
+Palavras-chave
+Conteúdo
+```
+
+O ID técnico não entra no texto de embedding. Alterar a composição ou a ordem
+desse texto no futuro pode exigir reindexação dos documentos.
+
+Os artigos são sintéticos e não contêm dados reais de clientes. Nesta etapa não
+há persistência vetorial, endpoint de busca semântica ou geração RAG.
