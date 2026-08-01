@@ -230,6 +230,66 @@ Esta etapa ainda não inclui:
 - geração de resposta baseada em documentos;
 - base de conhecimento definitiva.
 
+## EmbeddingService
+
+`EmbeddingService`, em `app/services/embedding_service.py`, encapsula a geração
+assíncrona de embeddings sem conhecer FastAPI, arquivos da base de conhecimento
+ou persistência vetorial.
+
+O fluxo do serviço é:
+
+```text
+Textos
+        |
+        v
+EmbeddingService
+        |
+        v
+OpenAI Embeddings API
+        |
+        v
+Validação
+        |
+        v
+list[list[float]]
+```
+
+Suas responsabilidades são:
+
+- normalizar textos com remoção de espaços externos;
+- gerar embeddings em lote;
+- preservar a ordem das entradas;
+- validar índices retornados pelo provedor;
+- validar a quantidade de vetores;
+- rejeitar vetores vazios;
+- validar consistência de dimensões;
+- rejeitar NaN e infinitos;
+- traduzir falhas do SDK para exceções internas do provedor.
+
+O serviço não carrega artigos, não calcula similaridade, não persiste vetores,
+não realiza pesquisa, não expõe endpoint HTTP e não gera respostas RAG.
+
+O fluxo experimental da base de conhecimento é:
+
+```text
+knowledge/articles.json
+        |
+        v
+load_knowledge_articles
+        |
+        v
+build_knowledge_article_embedding_text
+        |
+        v
+EmbeddingService
+        |
+        v
+embeddings temporários
+```
+
+Os vetores gerados por `scripts.embed_knowledge_base_smoke_test` são temporários
+e não são gravados em disco.
+
 ## Base de conhecimento
 
 A base de conhecimento sintética fica em:

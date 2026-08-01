@@ -258,13 +258,25 @@ Configure o `.env` e execute:
 python -m scripts.embedding_smoke_test
 ```
 
-O smoke test envia textos sintéticos para a API real, usa o modelo definido em
-`OPENAI_EMBEDDING_MODEL` e compara se dois textos sobre acesso/senha ficam mais
-próximos entre si do que de um texto sobre alteração de plano.
+O smoke test usa o `EmbeddingService`, envia textos sintéticos para a API real,
+usa o modelo definido em `OPENAI_EMBEDDING_MODEL` e compara se dois textos sobre
+acesso/senha ficam mais próximos entre si do que de um texto sobre alteração de
+plano.
 
-Esse comando pode consumir créditos e não faz parte do `pytest`. Os testes
-automatizados usam matemática vetorial local e mocks; eles não acessam a
-OpenAI.
+Para processar temporariamente a base de conhecimento:
+
+```powershell
+python -m scripts.embed_knowledge_base_smoke_test
+```
+
+O `EmbeddingService` gera embeddings em lote, preserva a ordem das entradas,
+valida índices, quantidade, dimensões e valores não finitos, e traduz falhas do
+SDK para os erros internos da aplicação.
+
+Esses comandos podem consumir créditos e não fazem parte do `pytest`. Os testes
+automatizados usam cliente simulado e matemática vetorial local; eles não
+acessam a OpenAI. Os vetores ainda não são persistidos, não existe busca
+semântica nesta etapa e não existe RAG.
 
 ## Base de conhecimento
 

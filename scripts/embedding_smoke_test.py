@@ -4,6 +4,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import get_settings
 from app.core.vector_math import cosine_similarity
+from app.services.embedding_service import EmbeddingService
 
 TEXTS = [
     "Não consigo acessar minha conta depois de redefinir a senha.",
@@ -34,38 +35,32 @@ async def main() -> None:
         timeout=30.0,
         max_retries=2,
     ) as client:
-        response = await client.embeddings.create(
+        service = EmbeddingService(
+            client=client,
             model=settings.openai_embedding_model,
-            input=TEXTS,
-            encoding_format="float",
+        )
+        embeddings = await service.embed_texts(
+            TEXTS,
         )
 
-    ordered_embeddings = [
-        item.embedding
-        for item in sorted(
-            response.data,
-            key=lambda item: item.index,
-        )
-    ]
-
-    if len(ordered_embeddings) != len(TEXTS):
+    if len(embeddings) != len(TEXTS):
         raise RuntimeError(
             "A resposta de embeddings não contém todos os textos enviados.",
         )
 
-    dimensions = len(ordered_embeddings[0])
+    dimensions = len(embeddings[0])
     password_similarity = cosine_similarity(
-        ordered_embeddings[0],
-        ordered_embeddings[1],
+        embeddings[0],
+        embeddings[1],
     )
     plan_similarity = cosine_similarity(
-        ordered_embeddings[0],
-        ordered_embeddings[2],
+        embeddings[0],
+        embeddings[2],
     )
 
     is_coherent = password_similarity > plan_similarity
 
-    print(f"Modelo: {response.model}")
+    print(f"Modelo: {settings.openai_embedding_model}")
     print(f"Dimensões: {dimensions}")
     print(f"Similaridade senha: {password_similarity:.4f}")
     print(f"Similaridade plano: {plan_similarity:.4f}")
