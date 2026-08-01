@@ -26,10 +26,20 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - respostas HTTP padronizadas;
 - documentação automática com OpenAPI e Swagger UI;
 - testes automatizados sem consumo da API;
+- configuração de modelo de embeddings;
+- geração assíncrona de embeddings;
+- geração de embeddings em lote;
+- validação dos vetores retornados pelo provedor;
+- similaridade de cosseno;
 - base de conhecimento sintética e versionada;
 - validação de artigos com Pydantic;
 - categorias e palavras-chave para artigos;
 - representação textual estável para embeddings;
+- índice vetorial em memória;
+- busca semântica por similaridade de cosseno;
+- recuperação de resultados top-k;
+- ordenação determinística em caso de empate;
+- serviço de busca desacoplado do cliente da OpenAI;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -60,7 +70,7 @@ ai-service/
 │   │   ├── exception_handlers.py
 │   │   └── router.py
 │   ├── core/              # Configurações, segurança e exceções
-│   ├── knowledge/         # Carregamento e texto da base de conhecimento
+│   ├── knowledge/         # Carregamento, texto e índice vetorial em memória
 │   ├── prompts/           # Estratégias e instruções
 │   ├── schemas/           # Contratos Pydantic
 │   ├── services/          # Regras e integrações
@@ -247,10 +257,10 @@ Esse comando utiliza a API real e pode consumir créditos.
 
 ## Testar embeddings
 
-Embeddings representam textos como vetores numéricos. A Semana 3 introduz a
-base para busca semântica comparando esses vetores com similaridade de cosseno.
-Ainda não há endpoint de busca, banco vetorial ou resposta final de um sistema
-RAG.
+Embeddings representam textos como vetores numéricos. A Semana 3 usa esses
+vetores para busca semântica em memória, comparando consultas e artigos com
+similaridade de cosseno. Ainda não há endpoint HTTP de busca, banco vetorial,
+persistência de embeddings ou resposta final de um sistema RAG.
 
 Configure o `.env` e execute:
 
@@ -275,8 +285,7 @@ SDK para os erros internos da aplicação.
 
 Esses comandos podem consumir créditos e não fazem parte do `pytest`. Os testes
 automatizados usam cliente simulado e matemática vetorial local; eles não
-acessam a OpenAI. Os vetores ainda não são persistidos, não existe busca
-semântica nesta etapa e não existe RAG.
+acessam a OpenAI. Os vetores ainda não são persistidos e não existe RAG.
 
 ## Base de conhecimento
 
@@ -300,12 +309,53 @@ Para validar e inspecionar:
 python -m scripts.inspect_knowledge_base
 ```
 
-Os artigos são sintéticos e não contêm dados reais. O ID técnico identifica o
+Os artigos são sintéticos e não contêm dados reais. A base possui 12 artigos,
+com dois artigos para cada categoria de chamado. O ID técnico identifica o
 artigo no arquivo, mas não entra no texto usado para embeddings. A representação
 textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem.
 
 Nesta etapa, embeddings ainda não são armazenados. Também não existe banco
 vetorial, endpoint de busca ou resposta RAG.
+
+## Busca semântica na base de conhecimento
+
+A busca semântica atual é feita em memória:
+
+```text
+knowledge/articles.json
+        |
+        v
+texto estável dos artigos
+        |
+        v
+EmbeddingService
+        |
+        v
+KnowledgeVectorIndex
+        |
+        v
+KnowledgeSearchService
+        |
+        v
+list[KnowledgeSearchMatch]
+```
+
+`KnowledgeVectorIndex` recebe os artigos e seus embeddings já calculados,
+valida os vetores, calcula similaridade de cosseno, ordena os resultados por
+maior pontuação e usa o ID do artigo como critério determinístico de desempate.
+`KnowledgeSearchService` depende apenas de um provedor assíncrono com
+`embed_text()` e do índice em memória, por isso a busca fica desacoplada do
+cliente concreto da OpenAI.
+
+Para executar uma busca semântica real na base sintética:
+
+```powershell
+python -m scripts.search_knowledge_base_smoke_test
+```
+
+Esse comando usa a API real da OpenAI, pode consumir créditos e não faz parte do
+`pytest`. Ele gera embeddings temporários, constrói o índice em memória e mostra
+os resultados top-k para uma consulta sintética.
 
 ## Classificação de chamados
 
@@ -701,7 +751,13 @@ Os testes verificam:
 - recusa;
 - resposta inválida;
 - respostas HTTP padronizadas;
-- header `Retry-After`.
+- header `Retry-After`;
+- carregamento e validação da base de conhecimento;
+- representação textual dos artigos;
+- geração e validação de embeddings com cliente simulado;
+- similaridade de cosseno;
+- índice vetorial em memória;
+- busca semântica com provedor falso.
 
 Os testes:
 
@@ -761,13 +817,10 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 
 ## Próximas funcionalidades
 
-- conjunto de avaliação com chamados conhecidos;
-- cálculo de acurácia de categoria;
-- cálculo de acurácia de prioridade;
-- comparação quantitativa das estratégias;
-- geração de embeddings para busca semântica;
-- comparação vetorial por similaridade de cosseno;
-- futura recuperação de artigos da base de conhecimento;
+- persistência ou reconstrução controlada dos embeddings da base;
+- endpoint HTTP protegido para busca semântica;
+- geração de resposta RAG com artigos recuperados;
+- avaliação quantitativa da recuperação semântica;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
 - métricas e observabilidade;

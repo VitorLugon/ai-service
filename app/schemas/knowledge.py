@@ -81,3 +81,18 @@ class KnowledgeArticle(BaseModel):
             )
 
         return normalized_keywords
+
+
+class KnowledgeSearchMatch(BaseModel):
+    """Representa um artigo recuperado pela busca semântica."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    article: KnowledgeArticle
+    score: float = Field(
+        ge=-1.0,
+        le=1.0,
+    )

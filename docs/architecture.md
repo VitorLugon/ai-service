@@ -183,22 +183,32 @@ O limite mínimo de cobertura permanece em 90%.
 
 ## Busca semântica
 
-A Semana 3 introduz embeddings para representar chamados e artigos da base de
-conhecimento como vetores numéricos.
+A Semana 3 introduz embeddings para representar consultas e artigos da base de
+conhecimento como vetores numéricos. No Dia 4, esses vetores passaram a ser
+usados por um índice vetorial em memória e por um serviço assíncrono de busca.
 
-A lógica inicial segue o fluxo:
+O fluxo implementado é:
 
 ```text
-Texto
+knowledge/articles.json
         |
         v
-Embedding
+load_knowledge_articles
         |
         v
-cosine_similarity
+build_knowledge_article_embedding_text
         |
         v
-Pontuação de relevância
+EmbeddingService
+        |
+        v
+KnowledgeVectorIndex
+        |
+        v
+KnowledgeSearchService
+        |
+        v
+list[KnowledgeSearchMatch]
 ```
 
 O modelo de embeddings é configurável por:
@@ -212,23 +222,14 @@ OpenAI, da camada HTTP, de Pydantic Settings e de variáveis de ambiente. Ela
 calcula a pontuação por produto escalar e norma dos vetores, rejeitando entradas
 vazias, dimensões diferentes e vetores nulos.
 
-A integração real com embeddings está disponível inicialmente por meio de:
-
-```powershell
-python -m scripts.embedding_smoke_test
-```
-
-Esse smoke test usa a API real e não é executado pelo `pytest`. Posteriormente,
-a geração de embeddings deve ser encapsulada em um service específico e usada
-por um índice da base de conhecimento.
-
-Esta etapa ainda não inclui:
+Esta etapa não inclui:
 
 - banco vetorial;
-- endpoint de busca semântica;
+- persistência dos embeddings;
+- endpoint HTTP de busca semântica;
 - pipeline RAG;
 - geração de resposta baseada em documentos;
-- base de conhecimento definitiva.
+- avaliação quantitativa da recuperação.
 
 ## EmbeddingService
 
@@ -290,6 +291,15 @@ embeddings temporários
 Os vetores gerados por `scripts.embed_knowledge_base_smoke_test` são temporários
 e não são gravados em disco.
 
+A integração real com embeddings está disponível por meio de:
+
+```powershell
+python -m scripts.embedding_smoke_test
+python -m scripts.embed_knowledge_base_smoke_test
+```
+
+Esses smoke tests usam a API real e não são executados pelo `pytest`.
+
 ## Base de conhecimento
 
 A base de conhecimento sintética fica em:
@@ -311,6 +321,9 @@ KnowledgeArticle
         |
         v
 build_knowledge_article_embedding_text
+        |
+        v
+KnowledgeVectorIndex
 ```
 
 A estrutura relacionada é:
@@ -319,7 +332,10 @@ A estrutura relacionada é:
 app/
 ├── knowledge/
 │   ├── loader.py
-│   └── text.py
+│   ├── text.py
+│   └── vector_index.py
+├── services/
+│   └── knowledge_search.py
 └── schemas/
     └── knowledge.py
 
@@ -350,5 +366,67 @@ Conteúdo
 O ID técnico não entra no texto de embedding. Alterar a composição ou a ordem
 desse texto no futuro pode exigir reindexação dos documentos.
 
-Os artigos são sintéticos e não contêm dados reais de clientes. Nesta etapa não
-há persistência vetorial, endpoint de busca semântica ou geração RAG.
+Os artigos são sintéticos e não contêm dados reais de clientes. A base atual tem
+12 artigos, com dois artigos por categoria de chamado.
+
+## Índice Vetorial
+
+`KnowledgeVectorIndex`, em `app/knowledge/vector_index.py`, mantém artigos e
+embeddings em memória. Ele recebe os vetores já calculados, normaliza os valores
+para `float` e valida:
+
+- existência de ao menos um artigo;
+- mesma quantidade de artigos e embeddings;
+- IDs de artigos sem duplicidade;
+- embeddings não vazios;
+- dimensões compatíveis;
+- valores finitos;
+- vetores não nulos.
+
+O índice expõe `size` e `dimensions`. A busca recebe um embedding de consulta e
+`top_k`, calcula similaridade de cosseno para cada artigo, limita os scores ao
+intervalo aceito por `KnowledgeSearchMatch`, ordena por maior score e usa o ID
+do artigo como desempate determinístico. Quando `top_k` é maior que a quantidade
+de artigos, retorna todos os resultados disponíveis.
+
+## Serviço de Busca
+
+`KnowledgeSearchService`, em `app/services/knowledge_search.py`, coordena a
+busca semântica sem depender diretamente de `AsyncOpenAI`. Ele recebe:
+
+- um provedor assíncrono compatível com `TextEmbeddingProvider`;
+- um `KnowledgeVectorIndex` já construído.
+
+O contrato mínimo do provedor exige apenas `embed_text(text: str)`. Com isso, o
+serviço pode usar `EmbeddingService` em smoke tests reais e provedores falsos
+nos testes automatizados.
+
+O fluxo do serviço é:
+
+```text
+query
+        |
+        v
+strip()
+        |
+        v
+TextEmbeddingProvider.embed_text()
+        |
+        v
+KnowledgeVectorIndex.search()
+        |
+        v
+list[KnowledgeSearchMatch]
+```
+
+Consultas vazias são rejeitadas antes de chamar o provedor de embeddings.
+
+A busca real na base sintética pode ser exercitada com:
+
+```powershell
+python -m scripts.search_knowledge_base_smoke_test
+```
+
+Esse script usa a API real da OpenAI, gera embeddings temporários para os
+artigos, constrói o índice em memória e executa uma consulta sintética com
+resultados top-k. Ele não persiste vetores e não roda no `pytest`.
