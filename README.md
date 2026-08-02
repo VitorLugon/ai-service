@@ -210,6 +210,7 @@ http://127.0.0.1:8000/redoc
 | GET | `/ready` | Não | Verifica se o serviço está pronto |
 | GET | `/internal/ping` | API Key | Valida a autenticação interna |
 | POST | `/internal/tickets/classify` | API Key | Classifica um chamado usando IA |
+| POST | `/internal/knowledge/search` | API Key | Busca artigos da base de conhecimento por similaridade semântica |
 
 ## Autenticação interna
 
@@ -259,8 +260,8 @@ Esse comando utiliza a API real e pode consumir créditos.
 
 Embeddings representam textos como vetores numéricos. A Semana 3 usa esses
 vetores para busca semântica em memória, comparando consultas e artigos com
-similaridade de cosseno. Ainda não há endpoint HTTP de busca, banco vetorial,
-persistência de embeddings ou resposta final de um sistema RAG.
+similaridade de cosseno. Ainda não há banco vetorial, persistência de embeddings
+ou resposta final de um sistema RAG.
 
 Configure o `.env` e execute:
 
@@ -315,7 +316,7 @@ artigo no arquivo, mas não entra no texto usado para embeddings. A representaç
 textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem.
 
 Nesta etapa, embeddings ainda não são armazenados. Também não existe banco
-vetorial, endpoint de busca ou resposta RAG.
+vetorial ou resposta RAG.
 
 ## Busca semântica na base de conhecimento
 
@@ -356,6 +357,53 @@ python -m scripts.search_knowledge_base_smoke_test
 Esse comando usa a API real da OpenAI, pode consumir créditos e não faz parte do
 `pytest`. Ele gera embeddings temporários, constrói o índice em memória e mostra
 os resultados top-k para uma consulta sintética.
+
+## Endpoint de busca semântica
+
+```http
+POST /internal/knowledge/search
+```
+
+O endpoint exige `X-API-Key`, recebe uma consulta e retorna os artigos mais
+próximos semanticamente na base sintética.
+
+Requisição:
+
+```json
+{
+  "query": "Redefini minha senha, mas ainda não consigo entrar",
+  "top_k": 3
+}
+```
+
+Contrato:
+
+- `query`: string normalizada com remoção de espaços externos, entre 3 e 1000
+  caracteres;
+- `top_k`: inteiro opcional entre 1 e 10, com padrão 3;
+- campos extras são rejeitados.
+
+Resposta:
+
+- `query`: consulta normalizada;
+- `model`: modelo de embeddings configurado;
+- `indexed_articles`: quantidade de artigos no índice em memória;
+- `matches`: lista de resultados;
+- `matches[].article`: artigo recuperado, com `id`, `title`, `content`,
+  `category` e `keywords`;
+- `matches[].score`: pontuação de similaridade de cosseno.
+
+Os valores de `score` dependem dos embeddings gerados no momento da consulta. A
+resposta não inclui uma resposta RAG final; ela apenas retorna os artigos
+recuperados e suas pontuações.
+
+Erros documentados no OpenAPI:
+
+- `401`: API Key interna ausente ou inválida;
+- `422`: payload inválido;
+- `502`: resposta inválida ou requisição rejeitada pelo provedor;
+- `503`: provedor indisponível, sem configuração, sem conexão ou limitado;
+- `504`: timeout do provedor.
 
 ## Classificação de chamados
 

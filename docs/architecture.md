@@ -226,7 +226,6 @@ Esta etapa não inclui:
 
 - banco vetorial;
 - persistência dos embeddings;
-- endpoint HTTP de busca semântica;
 - pipeline RAG;
 - geração de resposta baseada em documentos;
 - avaliação quantitativa da recuperação.
@@ -420,6 +419,42 @@ list[KnowledgeSearchMatch]
 ```
 
 Consultas vazias são rejeitadas antes de chamar o provedor de embeddings.
+
+## API de Busca
+
+O Dia 5 expõe a busca semântica pela rota interna:
+
+```http
+POST /internal/knowledge/search
+```
+
+A rota fica em `app/api/routes/knowledge.py`, usa a mesma autenticação interna
+por `X-API-Key` das demais rotas internas e delega a busca para
+`KnowledgeSearchService`. Ela não calcula similaridade diretamente e não cria
+uma segunda regra de autenticação.
+
+Os contratos Pydantic ficam em `app/schemas/knowledge.py`:
+
+- `KnowledgeSearchRequest`: recebe `query` e `top_k`, remove espaços externos
+  da consulta, rejeita campos extras e limita `top_k` entre 1 e 10;
+- `KnowledgeSearchResponse`: retorna a consulta normalizada, o modelo de
+  embeddings, a quantidade de artigos indexados e a lista de
+  `KnowledgeSearchMatch`.
+
+A dependência `get_knowledge_search_service`, em
+`app/api/dependencies/knowledge_search.py`, é responsável por:
+
+- validar a configuração da OpenAI;
+- carregar `knowledge/articles.json`;
+- criar `EmbeddingService`;
+- gerar embeddings temporários dos artigos;
+- construir `KnowledgeVectorIndex`;
+- disponibilizar `KnowledgeSearchService`;
+- fechar o cliente assíncrono da OpenAI ao final da requisição.
+
+Esse desenho mantém a camada HTTP separada da lógica de similaridade e permite
+que os testes substituam a dependência por um serviço falso, sem instanciar
+`AsyncOpenAI` e sem acessar rede.
 
 A busca real na base sintética pode ser exercitada com:
 

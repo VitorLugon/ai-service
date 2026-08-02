@@ -96,3 +96,43 @@ class KnowledgeSearchMatch(BaseModel):
         ge=-1.0,
         le=1.0,
     )
+
+
+class KnowledgeSearchRequest(BaseModel):
+    """Representa uma solicitação de busca semântica."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(
+        min_length=3,
+        max_length=1000,
+    )
+    top_k: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+    )
+
+    @field_validator(
+        "query",
+        mode="before",
+    )
+    @classmethod
+    def normalize_query(cls, value: object) -> object:
+        """Remove espaços externos da consulta."""
+
+        if isinstance(value, str):
+            return value.strip()
+
+        return value
+
+
+class KnowledgeSearchResponse(BaseModel):
+    """Representa o resultado da busca semântica."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    model: str
+    indexed_articles: int = Field(ge=1)
+    matches: list[KnowledgeSearchMatch]
