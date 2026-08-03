@@ -1,0 +1,134 @@
+[
+  {
+    "id": "access-01",
+    "query": "Troquei minha senha, mas continuo sem conseguir entrar.",
+    "relevant_article_ids": [
+      "recover-account-access"
+    ]
+  },
+  {
+    "id": "access-02",
+    "query": "Onde ativo a verificação em duas etapas com um aplicativo autenticador?",
+    "relevant_article_ids": [
+      "configure-multi-factor-authentication"
+    ]
+  },
+  {
+    "id": "access-03",
+    "query": "Não consigo acessar a conta e também preciso revisar a autenticação em duas etapas.",
+    "relevant_article_ids": [
+      "recover-account-access",
+      "configure-multi-factor-authentication"
+    ]
+  },
+  {
+    "id": "technical-01",
+    "query": "O relatório aparece na tela, mas o PDF baixado vem sem conteúdo.",
+    "relevant_article_ids": [
+      "resolve-empty-exported-pdf"
+    ]
+  },
+  {
+    "id": "technical-02",
+    "query": "O aplicativo fecha sozinho quando tento abrir as notificações.",
+    "relevant_article_ids": [
+      "resolve-mobile-notification-crash"
+    ]
+  },
+  {
+    "id": "technical-03",
+    "query": "O relatório exportado está vazio e preciso conferir os filtros utilizados.",
+    "relevant_article_ids": [
+      "resolve-empty-exported-pdf",
+      "combine-report-filters"
+    ]
+  },
+  {
+    "id": "billing-01",
+    "query": "O banco confirmou o pagamento, mas minha conta continua suspensa.",
+    "relevant_article_ids": [
+      "payment-approved-account-suspended"
+    ]
+  },
+  {
+    "id": "billing-02",
+    "query": "A cobrança veio com um plano diferente daquele que contratamos.",
+    "relevant_article_ids": [
+      "incorrect-plan-on-invoice"
+    ]
+  },
+  {
+    "id": "billing-03",
+    "query": "Minha conta ficou suspensa e a fatura parece estar com informações incorretas.",
+    "relevant_article_ids": [
+      "payment-approved-account-suspended",
+      "incorrect-plan-on-invoice"
+    ]
+  },
+  {
+    "id": "usage-01",
+    "query": "Como faço para baixar a relação de usuários em formato CSV?",
+    "relevant_article_ids": [
+      "export-users-to-csv"
+    ]
+  },
+  {
+    "id": "usage-02",
+    "query": "Posso aplicar período, departamento e status ao mesmo relatório?",
+    "relevant_article_ids": [
+      "combine-report-filters"
+    ]
+  },
+  {
+    "id": "usage-03",
+    "query": "Preciso exportar usuários e também ajustar os filtros do relatório.",
+    "relevant_article_ids": [
+      "export-users-to-csv",
+      "combine-report-filters"
+    ]
+  },
+  {
+    "id": "request-01",
+    "query": "Quero adicionar um campo obrigatório ao formulário de cadastro.",
+    "relevant_article_ids": [
+      "request-custom-registration-field"
+    ]
+  },
+  {
+    "id": "request-02",
+    "query": "Precisamos incluir uma nova métrica no painel gerencial.",
+    "relevant_article_ids": [
+      "request-dashboard-widget"
+    ]
+  },
+  {
+    "id": "request-03",
+    "query": "Quero solicitar melhorias tanto no cadastro quanto no dashboard.",
+    "relevant_article_ids": [
+      "request-custom-registration-field",
+      "request-dashboard-widget"
+    ]
+  },
+  {
+    "id": "other-01",
+    "query": "Quais detalhes devo informar para que o suporte entenda o problema?",
+    "relevant_article_ids": [
+      "provide-complete-ticket-information"
+    ]
+  },
+  {
+    "id": "other-02",
+    "query": "Minha solicitação não se encaixa nas categorias existentes. Como devo encaminhá-la?",
+    "relevant_article_ids": [
+      "identify-unsupported-request"
+    ]
+  },
+  {
+    "id": "other-03",
+    "query": "Não sei a categoria correta e ainda preciso descrever melhor o chamado.",
+    "relevant_article_ids": [
+      "provide-complete-ticket-information",
+      "identify-unsupported-request"
+    ]
+  }
+]

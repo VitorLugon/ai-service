@@ -40,6 +40,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - recuperação de resultados top-k;
 - ordenação determinística em caso de empate;
 - serviço de busca desacoplado do cliente da OpenAI;
+- avaliação da recuperação semântica com Hit Rate@k, Recall@k e MRR;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -404,6 +405,39 @@ Erros documentados no OpenAPI:
 - `502`: resposta inválida ou requisição rejeitada pelo provedor;
 - `503`: provedor indisponível, sem configuração, sem conexão ou limitado;
 - `504`: timeout do provedor.
+
+## Avaliação da recuperação semântica
+
+A avaliação da busca semântica usa um dataset sintético em:
+
+```text
+evaluation/knowledge_queries.json
+```
+
+O dataset contém 18 consultas sintéticas com julgamentos de relevância para os
+artigos de `knowledge/articles.json`. Há casos com um artigo relevante e casos
+com dois artigos relevantes, o que permite medir tanto presença de algum acerto
+quanto recuperação parcial de múltiplos documentos.
+
+As métricas calculadas são:
+
+- Hit Rate@1, Hit Rate@3 e Hit Rate@5;
+- Recall@1, Recall@3 e Recall@5;
+- Mean Reciprocal Rank.
+
+A avaliação é independente do endpoint HTTP. O script gera embeddings dos
+artigos em lote, constrói o índice vetorial em memória e depois gera embeddings
+das consultas em uma única chamada em lote. O MRR usa o ranking completo de cada
+consulta, não apenas os resultados top-k.
+
+Para executar a avaliação real:
+
+```powershell
+python -m scripts.evaluate_knowledge_retrieval
+```
+
+Esse comando usa a API real da OpenAI e pode consumir créditos. Ele não persiste
+embeddings, não chama o endpoint HTTP e não gera resposta RAG.
 
 ## Classificação de chamados
 
@@ -866,9 +900,7 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 ## Próximas funcionalidades
 
 - persistência ou reconstrução controlada dos embeddings da base;
-- endpoint HTTP protegido para busca semântica;
 - geração de resposta RAG com artigos recuperados;
-- avaliação quantitativa da recuperação semântica;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
 - métricas e observabilidade;

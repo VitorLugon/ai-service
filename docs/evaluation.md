@@ -135,3 +135,103 @@ Na semana 2, o projeto consolidou:
 - avaliação quantitativa;
 - baseline configurável;
 - aprendizados sobre testes, prompts e ambiguidades.
+
+# Avaliação da recuperação semântica
+
+## Objetivo
+
+A avaliação de recuperação mede se a busca semântica encontra os artigos
+esperados da base de conhecimento sintética. Ela é independente da camada HTTP:
+o avaliador recebe um provedor de embeddings e um `KnowledgeVectorIndex`, gera
+embeddings das consultas em lote e calcula métricas a partir do ranking
+completo.
+
+## Dataset
+
+O dataset está em:
+
+```text
+evaluation/knowledge_queries.json
+```
+
+Ele contém 18 consultas sintéticas e julgamentos de relevância para os 12
+artigos de `knowledge/articles.json`.
+
+Composição:
+
+- 12 consultas com um artigo relevante;
+- 6 consultas com dois artigos relevantes;
+- todos os 12 artigos aparecem ao menos uma vez como relevantes;
+- não há dados reais de clientes.
+
+O carregador `load_retrieval_evaluation_cases` valida:
+
+- lista não vazia;
+- IDs de casos únicos;
+- consultas únicas, com comparação sem diferenciar maiúsculas de minúsculas;
+- IDs relevantes não vazios e sem duplicidade;
+- referências somente a artigos existentes.
+
+## Métricas
+
+As métricas calculadas são:
+
+- Hit Rate@1, Hit Rate@3 e Hit Rate@5;
+- Recall@1, Recall@3 e Recall@5;
+- Mean Reciprocal Rank.
+
+Hit Rate@k mede se ao menos um artigo relevante aparece entre os k primeiros
+resultados. Recall@k mede a fração dos artigos relevantes recuperados entre os k
+primeiros resultados. O MRR usa a posição do primeiro artigo relevante no
+ranking completo.
+
+## Execução real
+
+O script de avaliação real é:
+
+```powershell
+python -m scripts.evaluate_knowledge_retrieval
+```
+
+Esse script:
+
+- carrega os 12 artigos;
+- carrega as 18 consultas;
+- gera embeddings dos artigos em uma chamada em lote;
+- constrói o índice vetorial em memória;
+- gera embeddings das consultas em uma chamada em lote;
+- calcula as métricas para k igual a 1, 3 e 5;
+- lista casos cujo primeiro relevante não ficou na primeira posição;
+- lista casos que não recuperaram todos os relevantes no top 3.
+
+A execução usa a API real da OpenAI e pode consumir créditos. Os testes
+automatizados usam provedores falsos e não acessam a OpenAI.
+
+## Resultado real mais recente da recuperação
+
+Execução real com `text-embedding-3-small`, 12 artigos sintéticos e 18 consultas
+sintéticas:
+
+| Métrica | Resultado |
+|---|---:|
+| Hit Rate@1 | 1,0000 |
+| Hit Rate@3 | 1,0000 |
+| Hit Rate@5 | 1,0000 |
+| Recall@1 | 0,8333 |
+| Recall@3 | 1,0000 |
+| Recall@5 | 1,0000 |
+| MRR | 1,0000 |
+
+Nessa execução, todos os casos tiveram um artigo relevante na primeira posição
+e todos os relevantes foram recuperados no top 3.
+
+## Limitações da recuperação
+
+- o dataset é pequeno e sintético;
+- os julgamentos de relevância ainda são manuais;
+- não há comparação entre modelos;
+- não há persistência de embeddings;
+- não há banco vetorial;
+- não há geração RAG;
+- métricas reais dependem do modelo de embeddings configurado no momento da
+  execução.

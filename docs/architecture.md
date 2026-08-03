@@ -70,7 +70,8 @@ docs/
 ```
 
 `docs/evaluation.md` registra o dataset sintético, métricas, resultados reais,
-casos divergentes, ambiguidades e próximos passos.
+casos divergentes, ambiguidades, avaliação de recuperação semântica e próximos
+passos.
 
 ## Classificação
 
@@ -154,6 +155,45 @@ O relatório `TicketEvaluationReport` inclui:
 - acurácia conjunta;
 - resultado individual de cada caso.
 
+## Avaliação da Recuperação Semântica
+
+O Dia 6 adiciona uma avaliação separada para a qualidade da busca semântica:
+
+- `evaluation/knowledge_queries.json` define consultas sintéticas e artigos
+  relevantes;
+- `app/schemas/retrieval_evaluation.py` define os contratos da avaliação;
+- `app/evaluation/retrieval_dataset.py` carrega e valida o dataset;
+- `app/services/knowledge_retrieval_evaluator.py` calcula Hit Rate@k,
+  Recall@k e MRR;
+- `scripts/evaluate_knowledge_retrieval.py` executa uma avaliação real com a
+  OpenAI API.
+
+O fluxo é:
+
+```text
+evaluation/knowledge_queries.json
+        |
+        v
+load_retrieval_evaluation_cases
+        |
+        v
+EmbeddingProvider.embed_texts
+        |
+        v
+KnowledgeVectorIndex.search(top_k=index.size)
+        |
+        v
+KnowledgeRetrievalEvaluator
+        |
+        v
+RetrievalEvaluationReport
+```
+
+A avaliação não chama o endpoint HTTP de busca. Ela trabalha diretamente com o
+índice vetorial em memória e preserva o ranking completo de cada consulta para
+calcular Mean Reciprocal Rank. Os embeddings das consultas são gerados em uma
+única chamada em lote, e os testes usam provedores falsos sem acesso externo.
+
 ## Avaliações reais
 
 As avaliações reais usam a OpenAI API e podem consumir créditos:
@@ -227,8 +267,7 @@ Esta etapa não inclui:
 - banco vetorial;
 - persistência dos embeddings;
 - pipeline RAG;
-- geração de resposta baseada em documentos;
-- avaliação quantitativa da recuperação.
+- geração de resposta baseada em documentos.
 
 ## EmbeddingService
 
