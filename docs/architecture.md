@@ -66,7 +66,8 @@ essa estratégia ao `TicketClassifierService`.
 ```text
 docs/
 ├── architecture.md
-└── evaluation.md
+├── evaluation.md
+└── week-3-review.md
 ```
 
 `docs/evaluation.md` registra o dataset sintético, métricas, resultados reais,
@@ -269,6 +270,25 @@ Esta etapa não inclui:
 - pipeline RAG;
 - geração de resposta baseada em documentos.
 
+## Estado ao final da Semana 3
+
+Ao final da Semana 3, a recuperação semântica está funcional de ponta a ponta:
+
+- a base sintética é carregada de `knowledge/articles.json`;
+- os artigos são convertidos para uma representação textual estável;
+- `EmbeddingService` gera embeddings em lote;
+- `KnowledgeVectorIndex` mantém um índice linear em memória;
+- `KnowledgeSearchService` executa busca top-k;
+- `POST /internal/knowledge/search` expõe a busca como endpoint interno
+  protegido;
+- `KnowledgeRetrievalEvaluator` avalia diretamente os serviços, sem passar pela
+  camada HTTP;
+- as consultas de avaliação são processadas em lote;
+- o MRR usa o ranking completo retornado pelo índice.
+
+Os embeddings ainda não são persistidos, não há banco vetorial e o índice é
+reconstruído conforme o ciclo de vida atual das dependências e scripts.
+
 ## EmbeddingService
 
 `EmbeddingService`, em `app/services/embedding_service.py`, encapsula a geração
@@ -432,12 +452,12 @@ de artigos, retorna todos os resultados disponíveis.
 `KnowledgeSearchService`, em `app/services/knowledge_search.py`, coordena a
 busca semântica sem depender diretamente de `AsyncOpenAI`. Ele recebe:
 
-- um provedor assíncrono compatível com `TextEmbeddingProvider`;
+- um provedor assíncrono compatível com `EmbeddingProvider`;
 - um `KnowledgeVectorIndex` já construído.
 
-O contrato mínimo do provedor exige apenas `embed_text(text: str)`. Com isso, o
-serviço pode usar `EmbeddingService` em smoke tests reais e provedores falsos
-nos testes automatizados.
+O contrato do provedor expõe `model`, `embed_text(text: str)` e
+`embed_texts(texts)`. Com isso, a busca usa `EmbeddingService` em smoke tests
+reais e provedores falsos nos testes automatizados.
 
 O fluxo do serviço é:
 
@@ -448,7 +468,7 @@ query
 strip()
         |
         v
-TextEmbeddingProvider.embed_text()
+EmbeddingProvider.embed_text()
         |
         v
 KnowledgeVectorIndex.search()

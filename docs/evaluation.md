@@ -136,9 +136,9 @@ Na semana 2, o projeto consolidou:
 - baseline configurável;
 - aprendizados sobre testes, prompts e ambiguidades.
 
-# Avaliação da recuperação semântica
+## Avaliação da recuperação semântica
 
-## Objetivo
+### Objetivo
 
 A avaliação de recuperação mede se a busca semântica encontra os artigos
 esperados da base de conhecimento sintética. Ela é independente da camada HTTP:
@@ -146,7 +146,7 @@ o avaliador recebe um provedor de embeddings e um `KnowledgeVectorIndex`, gera
 embeddings das consultas em lote e calcula métricas a partir do ranking
 completo.
 
-## Dataset
+### Dataset
 
 O dataset está em:
 
@@ -172,7 +172,7 @@ O carregador `load_retrieval_evaluation_cases` valida:
 - IDs relevantes não vazios e sem duplicidade;
 - referências somente a artigos existentes.
 
-## Métricas
+### Métricas
 
 As métricas calculadas são:
 
@@ -185,7 +185,7 @@ resultados. Recall@k mede a fração dos artigos relevantes recuperados entre os
 primeiros resultados. O MRR usa a posição do primeiro artigo relevante no
 ranking completo.
 
-## Execução real
+### Execução real
 
 O script de avaliação real é:
 
@@ -207,10 +207,10 @@ Esse script:
 A execução usa a API real da OpenAI e pode consumir créditos. Os testes
 automatizados usam provedores falsos e não acessam a OpenAI.
 
-## Resultado real mais recente da recuperação
+### Baseline
 
-Execução real com `text-embedding-3-small`, 12 artigos sintéticos e 18 consultas
-sintéticas:
+Execução real realizada em 2026-08-03 com `text-embedding-3-small`, 12 artigos
+sintéticos e 18 consultas sintéticas. Os valores de k avaliados foram 1, 3 e 5.
 
 | Métrica | Resultado |
 |---|---:|
@@ -225,11 +225,28 @@ sintéticas:
 Nessa execução, todos os casos tiveram um artigo relevante na primeira posição
 e todos os relevantes foram recuperados no top 3.
 
-## Limitações da recuperação
+### Análise por consulta
+
+| Caso | Relevantes | Primeiro relevante | Top resultados | Diagnóstico | Decisão |
+|---|---|---:|---|---|---|
+| Nenhum caso problemático | N/A | N/A | N/A | Todas as consultas tiveram um relevante no top 1 e todos os relevantes no top 3. | Nenhuma alteração necessária. |
+
+### Alterações
+
+Nenhuma alteração foi feita no dataset, nos artigos ou na representação textual
+dos artigos. O baseline não indicou erro de implementação, ground truth
+incompleto, consulta problemática, conteúdo insuficiente ou problema sistemático
+na representação de embedding.
+
+### Limitações da recuperação
 
 - o dataset é pequeno e sintético;
+- há somente 12 artigos;
+- há somente 18 consultas;
 - os julgamentos de relevância ainda são manuais;
 - não há comparação entre modelos;
+- não há dados reais de produção;
+- não há NDCG ou MAP;
 - não há persistência de embeddings;
 - não há banco vetorial;
 - não há geração RAG;

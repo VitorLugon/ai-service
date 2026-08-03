@@ -85,6 +85,8 @@ ai-service/
 A descrição completa está em [`docs/architecture.md`](docs/architecture.md).
 Os resultados e limites da avaliação estão em
 [`docs/evaluation.md`](docs/evaluation.md).
+A revisão técnica da Semana 3 está em
+[`docs/week-3-review.md`](docs/week-3-review.md).
 
 ## Requisitos
 
@@ -319,9 +321,12 @@ textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem
 Nesta etapa, embeddings ainda não são armazenados. Também não existe banco
 vetorial ou resposta RAG.
 
-## Busca semântica na base de conhecimento
+## Recuperação semântica
 
-A busca semântica atual é feita em memória:
+A recuperação semântica atual usa uma base sintética de conhecimento, geração
+de embeddings, índice em memória, busca semântica top-k, endpoint interno e
+avaliação quantitativa da recuperação. A busca atual é linear sobre os artigos
+indexados e é adequada ao protótipo com 12 artigos.
 
 ```text
 knowledge/articles.json
@@ -349,7 +354,32 @@ maior pontuação e usa o ID do artigo como critério determinístico de desempa
 `embed_text()` e do índice em memória, por isso a busca fica desacoplada do
 cliente concreto da OpenAI.
 
-Para executar uma busca semântica real na base sintética:
+Comandos úteis:
+
+```powershell
+python -m scripts.inspect_knowledge_base
+python -m scripts.search_knowledge_base_smoke_test
+python -m scripts.evaluate_knowledge_retrieval
+```
+
+`scripts.inspect_knowledge_base` executa validações locais. Os scripts
+`search_knowledge_base_smoke_test` e `evaluate_knowledge_retrieval` usam a API
+real da OpenAI e podem consumir créditos.
+
+As métricas de avaliação da recuperação são:
+
+- Hit Rate@1, Hit Rate@3 e Hit Rate@5;
+- Recall@1, Recall@3 e Recall@5;
+- Mean Reciprocal Rank.
+
+O baseline real e a análise estão documentados em
+[`docs/evaluation.md`](docs/evaluation.md) e o fechamento técnico da semana está
+em [`docs/week-3-review.md`](docs/week-3-review.md).
+
+Ainda não existe banco vetorial, os embeddings não são persistidos, o índice é
+reconstruído conforme o ciclo de vida atual e não existe resposta RAG.
+
+Para executar somente uma busca semântica real na base sintética:
 
 ```powershell
 python -m scripts.search_knowledge_base_smoke_test

@@ -59,10 +59,11 @@ def print_report(
             first_retrieved_ids = ", ".join(
                 result.retrieved_article_ids[:5],
             )
+            expected_ids = ", ".join(result.relevant_article_ids)
 
             print(
                 f"- {result.case_id}: rank={first_rank}; "
-                f"primeiros={first_retrieved_ids}"
+                f"esperados={expected_ids}; primeiros={first_retrieved_ids}"
             )
 
     cases_with_incomplete_top_3 = [
@@ -81,8 +82,12 @@ def print_report(
             first_retrieved_ids = ", ".join(
                 result.retrieved_article_ids[:3],
             )
+            expected_ids = ", ".join(result.relevant_article_ids)
 
-            print(f"- {result.case_id}: top3={first_retrieved_ids}")
+            print(
+                f"- {result.case_id}: esperados={expected_ids}; "
+                f"top3={first_retrieved_ids}"
+            )
 
 
 async def main() -> None:
