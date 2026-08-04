@@ -4,7 +4,7 @@ from collections.abc import Sequence
 import pytest
 
 from app.knowledge.vector_index import KnowledgeVectorIndex
-from app.schemas.knowledge import KnowledgeArticle
+from app.schemas.knowledge import KnowledgeArticle, KnowledgeSearchMatch
 from app.schemas.tickets import TicketCategory
 from app.services.knowledge_search import (
     KnowledgeSearchService,
@@ -61,6 +61,37 @@ class FakeEmbeddingProvider:
         self.embedded_text_batches.append(list(texts))
 
         return self.article_embeddings
+
+
+class FakeKnowledgeSearchBackend:
+    """Backend determinístico usado nos testes."""
+
+    def __init__(
+        self,
+        matches: list[KnowledgeSearchMatch],
+    ) -> None:
+        self._matches = matches
+        self.received_embedding: list[float] | None = None
+        self.received_top_k: int | None = None
+
+    @property
+    def size(self) -> int:
+        """Retorna a quantidade de resultados disponíveis."""
+
+        return len(self._matches)
+
+    def search(
+        self,
+        query_embedding: Sequence[float],
+        *,
+        top_k: int = 3,
+    ) -> list[KnowledgeSearchMatch]:
+        """Retorna resultados determinísticos."""
+
+        self.received_embedding = list(query_embedding)
+        self.received_top_k = top_k
+
+        return self._matches[:top_k]
 
 
 def test_knowledge_search_embeds_normalized_query() -> None:
@@ -155,6 +186,52 @@ def test_knowledge_search_respects_top_k() -> None:
 
     assert len(results) == 1
     assert results[0].article.id == "first-article"
+
+
+def test_knowledge_search_accepts_backend_protocol() -> None:
+    article = create_article(
+        "recover-account-access",
+    )
+    match = KnowledgeSearchMatch(
+        article=article,
+        score=0.9,
+    )
+    backend = FakeKnowledgeSearchBackend(
+        matches=[
+            match,
+        ],
+    )
+    provider = FakeEmbeddingProvider(
+        query_embedding=[
+            1.0,
+            0.0,
+        ],
+    )
+    service = KnowledgeSearchService(
+        embedding_provider=provider,
+        index=backend,
+    )
+
+    results = asyncio.run(
+        service.search(
+            "  recuperar minha senha  ",
+            top_k=1,
+        ),
+    )
+
+    assert results == [
+        match,
+    ]
+    assert provider.embedded_queries == [
+        "recuperar minha senha",
+    ]
+    assert backend.received_embedding == [
+        1.0,
+        0.0,
+    ]
+    assert backend.received_top_k == 1
+    assert service.indexed_articles == 1
+    assert service.model == "test-embedding-model"
 
 
 def test_build_knowledge_search_service_builds_index_from_articles() -> None:

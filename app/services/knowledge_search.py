@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from app.knowledge.search_backend import KnowledgeSearchBackend
 from app.knowledge.text import build_knowledge_article_embedding_text
 from app.knowledge.vector_index import KnowledgeVectorIndex
 from app.schemas.knowledge import (
@@ -35,7 +36,7 @@ class KnowledgeSearchService:
     def __init__(
         self,
         embedding_provider: EmbeddingProvider,
-        index: KnowledgeVectorIndex,
+        index: KnowledgeSearchBackend,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._index = index

@@ -450,10 +450,11 @@ de artigos, retorna todos os resultados disponíveis.
 ## Serviço de Busca
 
 `KnowledgeSearchService`, em `app/services/knowledge_search.py`, coordena a
-busca semântica sem depender diretamente de `AsyncOpenAI`. Ele recebe:
+busca semântica sem depender diretamente de `AsyncOpenAI` nem de uma
+implementação concreta de índice. Ele recebe:
 
 - um provedor assíncrono compatível com `EmbeddingProvider`;
-- um `KnowledgeVectorIndex` já construído.
+- um backend compatível com `KnowledgeSearchBackend`.
 
 O contrato do provedor expõe `model`, `embed_text(text: str)` e
 `embed_texts(texts)`. Com isso, a busca usa `EmbeddingService` em smoke tests
@@ -478,6 +479,49 @@ list[KnowledgeSearchMatch]
 ```
 
 Consultas vazias são rejeitadas antes de chamar o provedor de embeddings.
+
+## Abstração do mecanismo de busca
+
+A Semana 4 prepara a busca semântica para uma implementação persistente sem
+alterar o comportamento atual:
+
+```text
+KnowledgeSearchService
+          |
+          v
+KnowledgeSearchBackend
+       /             \
+      v               v
+KnowledgeVectorIndex  ChromaKnowledgeStore
+       atual                 futuro
+```
+
+`KnowledgeSearchBackend`, em `app/knowledge/search_backend.py`, é um contrato de
+leitura. Ele expõe apenas:
+
+- `size`: quantidade de artigos disponíveis;
+- `search(query_embedding, top_k=...)`: recuperação semântica estruturada.
+
+Operações de escrita, persistência, reset, upsert ou exclusão não pertencem a
+esse contrato. `KnowledgeVectorIndex` continua sendo a implementação atual por
+tipagem estrutural, sem herdar explicitamente do protocolo. Uma futura
+implementação persistente poderá substituir o índice sem que
+`KnowledgeSearchService` conheça Chroma.
+
+`EmbeddingService` continua responsável por gerar vetores. O backend de busca
+recebe o embedding da consulta já calculado e retorna `KnowledgeSearchMatch`.
+
+## Decisão arquitetural
+
+A decisão de usar Chroma futuramente está registrada em:
+
+```text
+docs/decisions/0001-use-chroma-vector-store.md
+```
+
+Essa decisão planeja Chroma local e persistente em etapas futuras. Chroma ainda
+não foi instalado, nenhuma coleção foi criada e os embeddings seguem sem
+persistência nesta etapa.
 
 ## API de Busca
 

@@ -469,6 +469,34 @@ python -m scripts.evaluate_knowledge_retrieval
 Esse comando usa a API real da OpenAI e pode consumir créditos. Ele não persiste
 embeddings, não chama o endpoint HTTP e não gera resposta RAG.
 
+## Semana 4 — Armazenamento vetorial
+
+A busca semântica está sendo preparada para receber armazenamento vetorial
+persistente em uma etapa futura. `KnowledgeSearchService` agora depende de um
+contrato de leitura, `KnowledgeSearchBackend`, em vez de depender diretamente de
+uma implementação concreta de índice.
+
+`KnowledgeVectorIndex` continua sendo a implementação utilizada hoje. Uma
+implementação com Chroma está planejada, mas ainda não foi implementada.
+`EmbeddingService` continuará responsável por gerar os vetores, e o backend de
+busca receberá embeddings já calculados pela aplicação.
+
+Decisão arquitetural:
+
+```text
+docs/decisions/0001-use-chroma-vector-store.md
+```
+
+Nesta etapa:
+
+- Chroma não foi instalado;
+- nenhuma coleção local foi criada;
+- `data/chroma` não foi criado;
+- embeddings ainda não são persistidos;
+- filtros por metadados ainda não foram implementados;
+- o endpoint HTTP não foi migrado para Chroma;
+- a busca continua usando o índice em memória.
+
 ## Classificação de chamados
 
 Entrada:
