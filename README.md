@@ -134,6 +134,10 @@ OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
+
+CHROMA_PERSIST_DIRECTORY=data/chroma
+CHROMA_COLLECTION_NAME=helpdesklite-knowledge-v1
+CHROMA_SCHEMA_VERSION=1
 ```
 
 ### Chave interna
@@ -172,6 +176,21 @@ permitidos são:
 - `few_shot`.
 
 O baseline atual é `one_shot`.
+
+### Chroma local
+
+As configurações do armazenamento vetorial local possuem valores padrão:
+
+```env
+CHROMA_PERSIST_DIRECTORY=data/chroma
+CHROMA_COLLECTION_NAME=helpdesklite-knowledge-v1
+CHROMA_SCHEMA_VERSION=1
+```
+
+`CHROMA_PERSIST_DIRECTORY` define o diretório persistente local do Chroma.
+`CHROMA_COLLECTION_NAME` define a coleção da base de conhecimento.
+`CHROMA_SCHEMA_VERSION` identifica a versão do schema validada na metadata da
+coleção.
 
 Nunca coloque uma chave real:
 
@@ -471,15 +490,35 @@ embeddings, não chama o endpoint HTTP e não gera resposta RAG.
 
 ## Semana 4 — Armazenamento vetorial
 
-A busca semântica está sendo preparada para receber armazenamento vetorial
-persistente em uma etapa futura. `KnowledgeSearchService` agora depende de um
-contrato de leitura, `KnowledgeSearchBackend`, em vez de depender diretamente de
-uma implementação concreta de índice.
+A busca semântica foi preparada para receber armazenamento vetorial
+persistente. `KnowledgeSearchService` depende de um contrato de leitura,
+`KnowledgeSearchBackend`, em vez de depender diretamente de uma implementação
+concreta de índice.
 
-`KnowledgeVectorIndex` continua sendo a implementação utilizada hoje. Uma
-implementação com Chroma está planejada, mas ainda não foi implementada.
-`EmbeddingService` continuará responsável por gerar os vetores, e o backend de
-busca receberá embeddings já calculados pela aplicação.
+`chromadb` está instalado e a integração básica com `PersistentClient` cria uma
+coleção local persistente vazia. `KnowledgeVectorIndex` continua sendo a
+implementação utilizada pelo endpoint HTTP; os 12 artigos da base sintética
+ainda não são indexados no Chroma.
+
+Configuração atual:
+
+- pacote `chromadb`;
+- cliente `PersistentClient`;
+- diretório `data/chroma`;
+- coleção `helpdesklite-knowledge-v1`;
+- distância de cosseno;
+- função de embeddings do Chroma desabilitada;
+- geração de vetores continua no `EmbeddingService`.
+
+Para inspecionar e validar a coleção persistente local:
+
+```powershell
+python -m scripts.inspect_chroma_collection
+```
+
+Esse comando cria ou obtém a coleção configurada, valida metadata e imprime a
+quantidade de registros. Ele não gera embeddings, não indexa artigos e não
+acessa a OpenAI.
 
 Decisão arquitetural:
 
@@ -489,9 +528,9 @@ docs/decisions/0001-use-chroma-vector-store.md
 
 Nesta etapa:
 
-- Chroma não foi instalado;
-- nenhuma coleção local foi criada;
-- `data/chroma` não foi criado;
+- Chroma foi instalado como dependência do projeto;
+- a coleção local persistente pode ser criada vazia pelo script de inspeção;
+- `data/chroma` é ignorado pelo Git;
 - embeddings ainda não são persistidos;
 - filtros por metadados ainda não foram implementados;
 - o endpoint HTTP não foi migrado para Chroma;

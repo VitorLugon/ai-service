@@ -482,8 +482,8 @@ Consultas vazias são rejeitadas antes de chamar o provedor de embeddings.
 
 ## Abstração do mecanismo de busca
 
-A Semana 4 prepara a busca semântica para uma implementação persistente sem
-alterar o comportamento atual:
+A Semana 4 prepara a busca semântica para armazenamento vetorial persistente
+sem alterar o comportamento do endpoint HTTP:
 
 ```text
 KnowledgeSearchService
@@ -492,8 +492,8 @@ KnowledgeSearchService
 KnowledgeSearchBackend
        /             \
       v               v
-KnowledgeVectorIndex  ChromaKnowledgeStore
-       atual                 futuro
+KnowledgeVectorIndex  Chroma local
+       atual          coleção persistente vazia
 ```
 
 `KnowledgeSearchBackend`, em `app/knowledge/search_backend.py`, é um contrato de
@@ -503,13 +503,33 @@ leitura. Ele expõe apenas:
 - `search(query_embedding, top_k=...)`: recuperação semântica estruturada.
 
 Operações de escrita, persistência, reset, upsert ou exclusão não pertencem a
-esse contrato. `KnowledgeVectorIndex` continua sendo a implementação atual por
-tipagem estrutural, sem herdar explicitamente do protocolo. Uma futura
-implementação persistente poderá substituir o índice sem que
-`KnowledgeSearchService` conheça Chroma.
+esse contrato. `KnowledgeVectorIndex` continua sendo a implementação atual do
+endpoint por tipagem estrutural, sem herdar explicitamente do protocolo. A
+integração Chroma atual cria apenas o cliente persistente e a coleção vazia; ela
+ainda não implementa um backend de busca para a aplicação.
 
 `EmbeddingService` continua responsável por gerar vetores. O backend de busca
 recebe o embedding da consulta já calculado e retorna `KnowledgeSearchMatch`.
+
+## Integração Chroma local
+
+O módulo `app/knowledge/chroma.py` concentra a fronteira com o SDK do Chroma.
+Ele cria um `PersistentClient` local, garante a existência do diretório
+`data/chroma`, obtém ou cria a coleção `helpdesklite-knowledge-v1` com distância
+de cosseno e valida a metadata esperada:
+
+- descrição da coleção;
+- versão de schema;
+- modelo de embeddings usado pela aplicação.
+
+A coleção é criada com `embedding_function=None`. O Chroma não gera embeddings,
+não usa `OpenAIEmbeddingFunction`, não baixa modelo local e não indexa a base de
+conhecimento nesta etapa. Quando houver vetores, eles deverão ser fornecidos
+explicitamente pela aplicação.
+
+O script `scripts/inspect_chroma_collection.py` usa as configurações da
+aplicação para criar ou validar a coleção persistente local e imprimir sua
+contagem. Após a criação inicial esperada, a coleção permanece vazia.
 
 ## Decisão arquitetural
 
@@ -519,9 +539,10 @@ A decisão de usar Chroma futuramente está registrada em:
 docs/decisions/0001-use-chroma-vector-store.md
 ```
 
-Essa decisão planeja Chroma local e persistente em etapas futuras. Chroma ainda
-não foi instalado, nenhuma coleção foi criada e os embeddings seguem sem
-persistência nesta etapa.
+Essa decisão agora está parcialmente implementada: Chroma está instalado, a
+coleção local persistente vazia pode ser criada e validada, e os arquivos em
+`data/chroma` não são versionados. Os embeddings seguem sem persistência e o
+endpoint HTTP continua usando o índice em memória.
 
 ## API de Busca
 
