@@ -133,6 +133,7 @@ INTERNAL_API_KEY=sua-chave-interna
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD=0.02
 OPENAI_PROMPT_STRATEGY=one_shot
 
 CHROMA_PERSIST_DIRECTORY=data/chroma
@@ -162,11 +163,14 @@ A variável `OPENAI_MODEL` determina o modelo utilizado:
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD=0.02
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
 O modelo pode ser alterado sem modificar o código-fonte.
 `OPENAI_EMBEDDING_MODEL` define o modelo utilizado para gerar embeddings.
+`OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD` define uma referência
+configurável para estimar custo antes de chamadas reais de embeddings.
 
 A variável `OPENAI_PROMPT_STRATEGY` define a estratégia de prompt. Os valores
 permitidos são:
@@ -495,10 +499,10 @@ persistente. `KnowledgeSearchService` depende de um contrato de leitura,
 `KnowledgeSearchBackend`, em vez de depender diretamente de uma implementação
 concreta de índice.
 
-`chromadb` está instalado e a integração básica com `PersistentClient` cria uma
-coleção local persistente vazia. `KnowledgeVectorIndex` continua sendo a
-implementação utilizada pelo endpoint HTTP; os 12 artigos da base sintética
-ainda não são indexados no Chroma.
+`chromadb` está instalado e a integração básica com `PersistentClient` cria ou
+obtém uma coleção local persistente. `KnowledgeVectorIndex` continua sendo a
+implementação utilizada pelo endpoint HTTP; a indexação no Chroma é executada
+por script separado e ainda não substitui a busca em memória.
 
 Configuração atual:
 
@@ -508,7 +512,9 @@ Configuração atual:
 - coleção `helpdesklite-knowledge-v1`;
 - distância de cosseno;
 - função de embeddings do Chroma desabilitada;
-- geração de vetores continua no `EmbeddingService`.
+- geração de vetores continua no `EmbeddingService`;
+- estimativa local de tokens com `tiktoken`;
+- custo estimado por configuração, sem chamada de billing.
 
 Para inspecionar e validar a coleção persistente local:
 
@@ -520,6 +526,18 @@ Esse comando cria ou obtém a coleção configurada, valida metadata e imprime a
 quantidade de registros. Ele não gera embeddings, não indexa artigos e não
 acessa a OpenAI.
 
+Para estimar tokens/custo e indexar os 12 artigos reais no Chroma local:
+
+```powershell
+python -m scripts.index_knowledge_base
+```
+
+Esse comando usa a API real da OpenAI para gerar embeddings em lote. Antes da
+chamada real, ele calcula uma estimativa determinística de tokens e custo. A
+persistência usa `collection.upsert` com `KnowledgeArticle.id` como ID do
+Chroma, portanto reexecutar o script atualiza os mesmos 12 registros sem criar
+duplicatas.
+
 Decisão arquitetural:
 
 ```text
@@ -529,9 +547,10 @@ docs/decisions/0001-use-chroma-vector-store.md
 Nesta etapa:
 
 - Chroma foi instalado como dependência do projeto;
-- a coleção local persistente pode ser criada vazia pelo script de inspeção;
+- a coleção local persistente pode ser criada pelo script de inspeção;
+- os 12 artigos podem ser indexados de forma idempotente por script separado;
 - `data/chroma` é ignorado pelo Git;
-- embeddings ainda não são persistidos;
+- embeddings reais só são persistidos quando o script de indexação é executado;
 - filtros por metadados ainda não foram implementados;
 - o endpoint HTTP não foi migrado para Chroma;
 - a busca continua usando o índice em memória.

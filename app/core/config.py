@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_embedding_cost_per_million_tokens_usd: Decimal = Decimal("0.02")
     openai_prompt_strategy: PromptStrategy = PromptStrategy.ONE_SHOT
 
     chroma_persist_directory: Path = Path(

@@ -505,8 +505,9 @@ leitura. Ele expõe apenas:
 Operações de escrita, persistência, reset, upsert ou exclusão não pertencem a
 esse contrato. `KnowledgeVectorIndex` continua sendo a implementação atual do
 endpoint por tipagem estrutural, sem herdar explicitamente do protocolo. A
-integração Chroma atual cria apenas o cliente persistente e a coleção vazia; ela
-ainda não implementa um backend de busca para a aplicação.
+integração Chroma atual cria o cliente persistente, valida a coleção e permite
+indexação por script separado; ela ainda não implementa um backend de busca para
+a aplicação.
 
 `EmbeddingService` continua responsável por gerar vetores. O backend de busca
 recebe o embedding da consulta já calculado e retorna `KnowledgeSearchMatch`.
@@ -523,13 +524,36 @@ de cosseno e valida a metadata esperada:
 - modelo de embeddings usado pela aplicação.
 
 A coleção é criada com `embedding_function=None`. O Chroma não gera embeddings,
-não usa `OpenAIEmbeddingFunction`, não baixa modelo local e não indexa a base de
-conhecimento nesta etapa. Quando houver vetores, eles deverão ser fornecidos
-explicitamente pela aplicação.
+não usa `OpenAIEmbeddingFunction` e não baixa modelo local. Os vetores são
+fornecidos explicitamente pela aplicação.
 
 O script `scripts/inspect_chroma_collection.py` usa as configurações da
 aplicação para criar ou validar a coleção persistente local e imprimir sua
-contagem. Após a criação inicial esperada, a coleção permanece vazia.
+contagem, sem indexar artigos.
+
+## Indexação Idempotente
+
+O Dia 3 adiciona a preparação determinística dos 12 artigos para persistência:
+
+- `app/services/embedding_cost.py` conta tokens com `tiktoken` e estima custo
+  com `Decimal`;
+- `app/schemas/knowledge_indexing.py` define os registros e metadados que serão
+  persistidos;
+- `app/knowledge/indexing.py` transforma `KnowledgeArticle` em registro de
+  indexação, preservando IDs, conteúdo original e `keywords_json`
+  determinístico;
+- `app/services/knowledge_indexer.py` gera embeddings em lote e persiste com
+  `collection.upsert`.
+
+O ID do Chroma é sempre `KnowledgeArticle.id`. A metadata persistida inclui
+título, categoria, palavras-chave em JSON determinístico, versão de schema e
+modelo de embeddings. A ausência de timestamp e UUID mantém a indexação
+reprodutível.
+
+O script `scripts/index_knowledge_base.py` calcula a estimativa de tokens/custo
+antes da chamada real à OpenAI, gera embeddings em lote via `EmbeddingService` e
+faz `upsert` dos registros. Executar o script novamente não duplica os artigos:
+os mesmos IDs são atualizados.
 
 ## Decisão arquitetural
 
@@ -540,9 +564,10 @@ docs/decisions/0001-use-chroma-vector-store.md
 ```
 
 Essa decisão agora está parcialmente implementada: Chroma está instalado, a
-coleção local persistente vazia pode ser criada e validada, e os arquivos em
-`data/chroma` não são versionados. Os embeddings seguem sem persistência e o
-endpoint HTTP continua usando o índice em memória.
+coleção local persistente pode ser criada e validada, e os arquivos em
+`data/chroma` não são versionados. A indexação persistente existe como script
+explícito e idempotente, enquanto o endpoint HTTP continua usando o índice em
+memória.
 
 ## API de Busca
 
