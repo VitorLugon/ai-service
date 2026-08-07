@@ -555,6 +555,35 @@ antes da chamada real à OpenAI, gera embeddings em lote via `EmbeddingService` 
 faz `upsert` dos registros. Executar o script novamente não duplica os artigos:
 os mesmos IDs são atualizados.
 
+## Leitura E Manutenção Do Chroma
+
+O Dia 4 adiciona `app/knowledge/chroma_backend.py` como implementação
+persistente do contrato `KnowledgeSearchBackend`. O backend recebe uma coleção
+Chroma já configurada, não abre cliente, não carrega settings, não lê arquivos e
+não gera embeddings.
+
+Na busca, o backend:
+
+- valida o embedding recebido;
+- limita `n_results` ao tamanho da coleção;
+- chama `collection.query` com `query_embeddings` explícito;
+- solicita apenas documentos, metadatas e distâncias;
+- reconstrói `KnowledgeArticle` a partir de ID, documento e metadata;
+- converte distância de cosseno para similaridade com `score = 1 - distance`;
+- preserva a ordem retornada pelo Chroma.
+
+Respostas incompletas ou inconsistentes do Chroma são rejeitadas com erro claro.
+O backend não interpreta distância como similaridade sem conversão.
+
+O serviço `app/services/knowledge_collection_service.py` concentra manutenção
+por ID. Atualizações verificam a existência com `collection.get(ids=[...])`,
+regeneram o embedding via `EmbeddingService` ou provedor compatível e persistem
+com `upsert` usando o mesmo ID. Remoções verificam existência, chamam
+`collection.delete(ids=[...])` e confirmam que a contagem diminuiu em 1.
+
+Essas capacidades preparam a migração futura, mas o endpoint HTTP continua
+usando `KnowledgeVectorIndex`.
+
 ## Decisão arquitetural
 
 A decisão de usar Chroma futuramente está registrada em:
@@ -566,7 +595,8 @@ docs/decisions/0001-use-chroma-vector-store.md
 Essa decisão agora está parcialmente implementada: Chroma está instalado, a
 coleção local persistente pode ser criada e validada, e os arquivos em
 `data/chroma` não são versionados. A indexação persistente existe como script
-explícito e idempotente, enquanto o endpoint HTTP continua usando o índice em
+explícito e idempotente. Leitura, atualização e remoção por ID já existem em
+serviços desacoplados, enquanto o endpoint HTTP continua usando o índice em
 memória.
 
 ## API de Busca

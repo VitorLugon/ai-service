@@ -86,3 +86,27 @@ class KnowledgeIndexingResult(BaseModel):
     embedding_dimensions: int = Field(
         ge=1,
     )
+
+
+class KnowledgeDeletionResult(BaseModel):
+    """Resumo de uma remoção de artigo da coleção persistente."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    deleted_article_id: str = Field(
+        min_length=3,
+        max_length=80,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+    collection_name: str = Field(
+        min_length=1,
+    )
+    records_before: int = Field(
+        ge=0,
+    )
+    records_after: int = Field(
+        ge=0,
+    )

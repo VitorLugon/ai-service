@@ -538,6 +538,29 @@ persistência usa `collection.upsert` com `KnowledgeArticle.id` como ID do
 Chroma, portanto reexecutar o script atualiza os mesmos 12 registros sem criar
 duplicatas.
 
+### Consulta direta no Chroma
+
+A coleção persistente pode ser consultada diretamente com embeddings externos.
+`EmbeddingService` gera o vetor da consulta e `ChromaKnowledgeSearchBackend`
+executa a busca na coleção. Como o Chroma retorna distância de cosseno, o backend
+converte cada distância para similaridade com `score = 1 - distance`.
+
+```powershell
+python -m scripts.query_chroma_knowledge `
+  "não consigo acessar minha conta" `
+  --top-k 3
+```
+
+Esse comando usa a API real da OpenAI para gerar apenas o embedding da consulta.
+Ele imprime ID, título, categoria e score, sem exibir embeddings, documentos
+completos ou segredos.
+
+O projeto também possui serviço de manutenção para atualização e remoção por ID
+em coleções Chroma já configuradas. Atualizações verificam a existência do ID,
+regeneram o embedding e usam `upsert` com o mesmo `KnowledgeArticle.id`.
+Remoções verificam existência antes de chamar `delete`. Essas operações ainda
+não são expostas no endpoint HTTP principal.
+
 Decisão arquitetural:
 
 ```text
@@ -549,6 +572,8 @@ Nesta etapa:
 - Chroma foi instalado como dependência do projeto;
 - a coleção local persistente pode ser criada pelo script de inspeção;
 - os 12 artigos podem ser indexados de forma idempotente por script separado;
+- a coleção persistente pode ser consultada por backend Chroma desacoplado;
+- atualização e remoção por ID existem como serviço interno;
 - `data/chroma` é ignorado pelo Git;
 - embeddings reais só são persistidos quando o script de indexação é executado;
 - filtros por metadados ainda não foram implementados;
