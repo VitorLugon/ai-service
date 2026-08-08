@@ -40,6 +40,8 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - indexação idempotente dos artigos com `upsert`;
 - busca semântica por similaridade de cosseno;
 - endpoint de busca integrado ao Chroma persistente;
+- filtro de busca por categoria sem expor `where` do Chroma;
+- busca semântica em lote com embeddings das queries em uma única chamada;
 - recuperação de resultados top-k;
 - ordenação determinística em caso de empate;
 - serviço de busca desacoplado do cliente da OpenAI;
@@ -241,6 +243,7 @@ http://127.0.0.1:8000/redoc
 | GET | `/internal/ping` | API Key | Valida a autenticação interna |
 | POST | `/internal/tickets/classify` | API Key | Classifica um chamado usando IA |
 | POST | `/internal/knowledge/search` | API Key | Busca artigos da base de conhecimento por similaridade semântica |
+| POST | `/internal/knowledge/search/batch` | API Key | Busca semântica em lote na base de conhecimento |
 
 ## Autenticação interna
 
@@ -442,7 +445,8 @@ Requisição:
 ```json
 {
   "query": "Redefini minha senha, mas ainda não consigo entrar",
-  "top_k": 3
+  "top_k": 3,
+  "category": "acesso_e_autenticacao"
 }
 ```
 
@@ -451,6 +455,7 @@ Contrato:
 - `query`: string normalizada com remoção de espaços externos, entre 3 e 1000
   caracteres;
 - `top_k`: inteiro opcional entre 1 e 10, com padrão 3;
+- `category`: categoria opcional para restringir a busca;
 - campos extras são rejeitados.
 
 Resposta:
@@ -469,6 +474,41 @@ recuperados e suas pontuações.
 
 Por requisição, o endpoint gera somente o embedding da query. Os embeddings dos
 artigos são reaproveitados do Chroma e não são recalculados.
+
+O filtro por categoria é representado por objeto de domínio e convertido
+internamente para `where` do Chroma. Clientes HTTP não enviam sintaxe nativa do
+Chroma e categorias inválidas são rejeitadas pela validação do schema.
+
+### Endpoint de busca em lote
+
+```http
+POST /internal/knowledge/search/batch
+```
+
+Requisição:
+
+```json
+{
+  "queries": [
+    "não consigo entrar",
+    "como exportar usuários?"
+  ],
+  "top_k": 3,
+  "category": null
+}
+```
+
+Resposta:
+
+- `model`: modelo de embeddings configurado;
+- `indexed_articles`: quantidade de artigos na coleção persistente;
+- `results`: lista na mesma ordem das consultas;
+- `results[].query`: consulta normalizada;
+- `results[].matches`: resultados top-k daquela consulta.
+
+O batch aceita de 1 a 20 consultas. O serviço gera embeddings das queries em
+uma única chamada em lote e executa uma única operação `collection.query` com
+`query_embeddings` contendo todos os vetores.
 
 Erros documentados no OpenAPI:
 
@@ -594,6 +634,61 @@ Durante o startup, a aplicação abre a coleção existente com
 que zero. Durante cada request, somente a query é enviada ao provedor de
 embeddings. Os embeddings dos artigos são reaproveitados do Chroma.
 
+### Filtros de busca
+
+A busca pode ser restringida por categoria usando os valores reais do enum do
+projeto:
+
+```json
+{
+  "query": "minha conta continua suspensa",
+  "top_k": 3,
+  "category": "cobranca"
+}
+```
+
+O filtro é aplicado pelo Chroma antes da recuperação vetorial. A API não aceita
+dicionários `where` arbitrários e não expõe operadores nativos do banco
+vetorial.
+
+### Busca em lote persistente
+
+O endpoint batch usa o mesmo backend persistente:
+
+```text
+queries
+        |
+        v
+EmbeddingService.embed_texts()
+        |
+        v
+ChromaKnowledgeSearchBackend.search_many()
+        |
+        v
+collection.query(query_embeddings=[...])
+```
+
+Para consulta manual em lote:
+
+```powershell
+python -m scripts.query_chroma_knowledge_batch `
+  "não consigo acessar minha conta" `
+  "como exportar usuários para CSV?" `
+  --top-k 3
+```
+
+Filtro opcional:
+
+```powershell
+python -m scripts.query_chroma_knowledge_batch `
+  "minha conta foi suspensa após pagamento" `
+  --top-k 3 `
+  --category cobranca
+```
+
+Esse script usa a API real da OpenAI para gerar embeddings das queries em lote.
+Ele não imprime embeddings, documentos completos ou segredos.
+
 ### Consulta direta no Chroma
 
 A coleção persistente pode ser consultada diretamente com embeddings externos.
@@ -630,10 +725,11 @@ Nesta etapa:
 - os 12 artigos podem ser indexados de forma idempotente por script separado;
 - a coleção persistente pode ser consultada por backend Chroma desacoplado;
 - o endpoint HTTP usa o backend Chroma inicializado no lifespan da aplicação;
+- filtros por categoria são convertidos internamente para `where`;
+- consultas em lote usam uma chamada de embeddings e uma chamada ao Chroma;
 - atualização e remoção por ID existem como serviço interno;
 - `data/chroma` é ignorado pelo Git;
 - embeddings reais só são persistidos quando o script de indexação é executado;
-- filtros por metadados ainda não foram implementados;
 - a busca em memória continua disponível para avaliação, testes e fallback
   explícito de desenvolvimento.
 

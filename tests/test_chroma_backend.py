@@ -6,9 +6,12 @@ import pytest
 from app.knowledge.chroma_backend import (
     ChromaKnowledgeInvalidRecordError,
     ChromaKnowledgeSearchBackend,
+    build_chroma_where,
     cosine_distance_to_similarity,
     knowledge_article_from_chroma_record,
 )
+from app.schemas.knowledge import KnowledgeSearchFilter
+from app.schemas.tickets import TicketCategory
 from app.services.knowledge_search import KnowledgeSearchService
 
 VALID_DOCUMENT = (
@@ -42,12 +45,14 @@ class FakeChromaCollection:
         *,
         query_embeddings: Sequence[Sequence[float]],
         n_results: int,
+        where: dict[str, object] | None = None,
         include: Sequence[str],
     ) -> Mapping[str, object]:
         self.query_calls.append(
             {
                 "query_embeddings": query_embeddings,
                 "n_results": n_results,
+                "where": where,
                 "include": include,
             },
         )
@@ -209,6 +214,118 @@ def test_chroma_backend_search_returns_matches() -> None:
     assert matches[0].article.title == "Artigo persistido"
     assert matches[0].score == pytest.approx(0.9)
     assert collection.query_calls[0]["n_results"] == 1
+    assert collection.query_calls[0]["where"] is None
+
+
+def test_build_chroma_where_returns_none_without_filter() -> None:
+    assert (
+        build_chroma_where(
+            None,
+        )
+        is None
+    )
+    assert (
+        build_chroma_where(
+            KnowledgeSearchFilter(),
+        )
+        is None
+    )
+
+
+def test_build_chroma_where_serializes_category_filter() -> None:
+    assert build_chroma_where(
+        KnowledgeSearchFilter(
+            category=TicketCategory.BILLING,
+        ),
+    ) == {
+        "category": {
+            "$eq": "cobranca",
+        },
+    }
+
+
+def test_chroma_backend_search_filtered_sends_where() -> None:
+    collection = FakeChromaCollection(
+        count=1,
+        query_result={
+            "ids": [
+                [
+                    "article-a",
+                ],
+            ],
+            "documents": [
+                [
+                    VALID_DOCUMENT,
+                ],
+            ],
+            "metadatas": [
+                [
+                    VALID_METADATA,
+                ],
+            ],
+            "distances": [
+                [
+                    0.1,
+                ],
+            ],
+        },
+    )
+    backend = ChromaKnowledgeSearchBackend(
+        collection,
+    )
+
+    matches = backend.search_filtered(
+        [
+            1.0,
+            0.0,
+        ],
+        top_k=1,
+        search_filter=KnowledgeSearchFilter(
+            category=TicketCategory.OTHER,
+        ),
+    )
+
+    assert len(matches) == 1
+    assert collection.query_calls[0]["where"] == {
+        "category": {
+            "$eq": "outro",
+        },
+    }
+
+
+def test_chroma_backend_search_filtered_returns_empty_matches() -> None:
+    backend = ChromaKnowledgeSearchBackend(
+        FakeChromaCollection(
+            count=2,
+            query_result={
+                "ids": [
+                    [],
+                ],
+                "documents": [
+                    [],
+                ],
+                "metadatas": [
+                    [],
+                ],
+                "distances": [
+                    [],
+                ],
+            },
+        ),
+    )
+
+    assert (
+        backend.search_filtered(
+            [
+                1.0,
+                0.0,
+            ],
+            search_filter=KnowledgeSearchFilter(
+                category=TicketCategory.BILLING,
+            ),
+        )
+        == []
+    )
 
 
 def test_chroma_backend_limits_top_k_to_collection_size() -> None:
@@ -243,6 +360,157 @@ def test_chroma_backend_limits_top_k_to_collection_size() -> None:
     assert collection.query_calls[0]["n_results"] == 1
 
 
+def test_chroma_backend_search_many_uses_single_batch_query() -> None:
+    collection = FakeChromaCollection(
+        count=2,
+        query_result={
+            "ids": [
+                [
+                    "article-a",
+                ],
+                [
+                    "article-b",
+                ],
+            ],
+            "documents": [
+                [
+                    VALID_DOCUMENT,
+                ],
+                [
+                    VALID_DOCUMENT,
+                ],
+            ],
+            "metadatas": [
+                [
+                    {
+                        **VALID_METADATA,
+                        "title": "Primeiro artigo",
+                    },
+                ],
+                [
+                    {
+                        **VALID_METADATA,
+                        "title": "Segundo artigo",
+                    },
+                ],
+            ],
+            "distances": [
+                [
+                    0.0,
+                ],
+                [
+                    0.2,
+                ],
+            ],
+        },
+    )
+    backend = ChromaKnowledgeSearchBackend(
+        collection,
+    )
+
+    results = backend.search_many(
+        [
+            [
+                1.0,
+                0.0,
+            ],
+            [
+                0.0,
+                1.0,
+            ],
+        ],
+        top_k=1,
+    )
+
+    assert len(results) == 2
+    assert [ranking[0].article.id for ranking in results] == [
+        "article-a",
+        "article-b",
+    ]
+    assert len(collection.query_calls) == 1
+    assert collection.query_calls[0]["query_embeddings"] == [
+        [
+            1.0,
+            0.0,
+        ],
+        [
+            0.0,
+            1.0,
+        ],
+    ]
+
+
+def test_chroma_backend_search_many_with_filter_sends_where() -> None:
+    collection = FakeChromaCollection(
+        count=1,
+        query_result={
+            "ids": [
+                [],
+                [],
+            ],
+            "documents": [
+                [],
+                [],
+            ],
+            "metadatas": [
+                [],
+                [],
+            ],
+            "distances": [
+                [],
+                [],
+            ],
+        },
+    )
+    backend = ChromaKnowledgeSearchBackend(
+        collection,
+    )
+
+    assert backend.search_many(
+        [
+            [
+                1.0,
+            ],
+            [
+                0.0,
+            ],
+        ],
+        search_filter=KnowledgeSearchFilter(
+            category=TicketCategory.TECHNICAL_ERROR,
+        ),
+    ) == [
+        [],
+        [],
+    ]
+    assert collection.query_calls[0]["where"] == {
+        "category": {
+            "$eq": "erro_tecnico",
+        },
+    }
+
+
+def test_chroma_backend_search_many_empty_collection_preserves_query_count() -> None:
+    backend = ChromaKnowledgeSearchBackend(
+        FakeChromaCollection(
+            count=0,
+        ),
+    )
+
+    assert backend.search_many(
+        [
+            [
+                1.0,
+            ],
+            [
+                0.0,
+            ],
+        ],
+    ) == [
+        [],
+        [],
+    ]
+
+
 @pytest.mark.parametrize(
     "embedding",
     [
@@ -266,6 +534,46 @@ def test_chroma_backend_rejects_invalid_query_embedding(
     ):
         backend.search(
             embedding,
+        )
+
+
+def test_chroma_backend_search_many_rejects_empty_batch() -> None:
+    backend = ChromaKnowledgeSearchBackend(
+        FakeChromaCollection(
+            count=1,
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="lote",
+    ):
+        backend.search_many(
+            [],
+        )
+
+
+def test_chroma_backend_search_many_rejects_inconsistent_dimensions() -> None:
+    backend = ChromaKnowledgeSearchBackend(
+        FakeChromaCollection(
+            count=1,
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="mesma dimensão",
+    ):
+        backend.search_many(
+            [
+                [
+                    1.0,
+                    0.0,
+                ],
+                [
+                    1.0,
+                ],
+            ],
         )
 
 
@@ -417,6 +725,46 @@ def test_chroma_backend_rejects_invalid_query_results(
             [
                 1.0,
                 0.0,
+            ],
+        )
+
+
+def test_chroma_backend_search_many_rejects_invalid_outer_result_count() -> None:
+    backend = ChromaKnowledgeSearchBackend(
+        FakeChromaCollection(
+            count=2,
+            query_result={
+                "ids": [
+                    [],
+                ],
+                "documents": [
+                    [],
+                    [],
+                ],
+                "metadatas": [
+                    [],
+                    [],
+                ],
+                "distances": [
+                    [],
+                    [],
+                ],
+            },
+        ),
+    )
+
+    with pytest.raises(
+        ChromaKnowledgeInvalidRecordError,
+        match="externa",
+    ):
+        backend.search_many(
+            [
+                [
+                    1.0,
+                ],
+                [
+                    0.0,
+                ],
             ],
         )
 

@@ -1,16 +1,21 @@
 import json
 from collections.abc import Mapping, Sequence
 from math import isfinite
-from typing import Protocol
+from typing import Protocol, TypeAlias
 
 from chromadb.errors import ChromaError
 from pydantic import ValidationError
 
 from app.core.exceptions import KnowledgeStoreUnavailableError
-from app.schemas.knowledge import KnowledgeArticle, KnowledgeSearchMatch
+from app.schemas.knowledge import (
+    KnowledgeArticle,
+    KnowledgeSearchFilter,
+    KnowledgeSearchMatch,
+)
 from app.schemas.tickets import TicketCategory
 
 FLOAT_TOLERANCE = 1e-9
+ChromaWhere: TypeAlias = dict[str, object]
 
 
 class ChromaKnowledgeError(RuntimeError):
@@ -32,6 +37,7 @@ class ChromaKnowledgeCollection(Protocol):
         *,
         query_embeddings: Sequence[Sequence[float]],
         n_results: int,
+        where: ChromaWhere | None = None,
         include: Sequence[str],
     ) -> Mapping[str, object]:
         """Consulta a coleção por embeddings explícitos."""
@@ -78,8 +84,42 @@ class ChromaKnowledgeSearchBackend:
     ) -> list[KnowledgeSearchMatch]:
         """Busca artigos persistidos por similaridade de cosseno."""
 
-        normalized_query_embedding = _normalize_embedding(
+        return self.search_filtered(
             query_embedding,
+            top_k=top_k,
+            search_filter=None,
+        )
+
+    def search_filtered(
+        self,
+        query_embedding: Sequence[float],
+        *,
+        top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
+    ) -> list[KnowledgeSearchMatch]:
+        """Busca artigos persistidos usando filtro de domínio opcional."""
+
+        results = self.search_many(
+            [
+                query_embedding,
+            ],
+            top_k=top_k,
+            search_filter=search_filter,
+        )
+
+        return results[0]
+
+    def search_many(
+        self,
+        query_embeddings: Sequence[Sequence[float]],
+        *,
+        top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
+    ) -> list[list[KnowledgeSearchMatch]]:
+        """Busca artigos para várias queries em uma única chamada ao Chroma."""
+
+        normalized_query_embeddings = _normalize_embeddings_batch(
+            query_embeddings,
         )
 
         if top_k < 1:
@@ -90,17 +130,22 @@ class ChromaKnowledgeSearchBackend:
         collection_size = self.size
 
         if collection_size == 0:
-            return []
+            return [[] for _ in normalized_query_embeddings]
+
+        where = build_chroma_where(
+            search_filter,
+        )
 
         try:
             query_result = self._collection.query(
                 query_embeddings=[
-                    list(normalized_query_embedding),
+                    list(embedding) for embedding in normalized_query_embeddings
                 ],
                 n_results=min(
                     top_k,
                     collection_size,
                 ),
+                where=where,
                 include=[
                     "documents",
                     "metadatas",
@@ -112,9 +157,25 @@ class ChromaKnowledgeSearchBackend:
                 "Não foi possível consultar a coleção Chroma.",
             ) from error
 
-        return _matches_from_query_result(
+        return _matches_batch_from_query_result(
             query_result,
+            expected_queries=len(normalized_query_embeddings),
         )
+
+
+def build_chroma_where(
+    search_filter: KnowledgeSearchFilter | None,
+) -> ChromaWhere | None:
+    """Converte filtro de domínio para o formato seguro do Chroma."""
+
+    if search_filter is None or search_filter.category is None:
+        return None
+
+    return {
+        "category": {
+            "$eq": search_filter.category.value,
+        },
+    }
 
 
 def cosine_distance_to_similarity(
@@ -251,26 +312,95 @@ def _normalize_embedding(
     return normalized_embedding
 
 
+def _normalize_embeddings_batch(
+    embeddings: Sequence[Sequence[float]],
+) -> tuple[tuple[float, ...], ...]:
+    if isinstance(
+        embeddings,
+        str,
+    ):
+        raise TypeError(
+            "O lote de embeddings deve ser uma sequência de vetores.",
+        )
+
+    normalized_embeddings = tuple(
+        _normalize_embedding(embedding) for embedding in embeddings
+    )
+
+    if not normalized_embeddings:
+        raise ValueError(
+            "O lote de embeddings não pode estar vazio.",
+        )
+
+    dimensions = len(
+        normalized_embeddings[0],
+    )
+
+    if any(len(embedding) != dimensions for embedding in normalized_embeddings):
+        raise ValueError(
+            "Todos os embeddings da consulta devem possuir a mesma dimensão.",
+        )
+
+    return normalized_embeddings
+
+
 def _matches_from_query_result(
     query_result: Mapping[str, object],
 ) -> list[KnowledgeSearchMatch]:
-    ids = _single_result_list(
+    return _matches_batch_from_query_result(
+        query_result,
+        expected_queries=1,
+    )[0]
+
+
+def _matches_batch_from_query_result(
+    query_result: Mapping[str, object],
+    *,
+    expected_queries: int,
+) -> list[list[KnowledgeSearchMatch]]:
+    ids_batch = _batch_result_list(
         query_result,
         "ids",
+        expected_queries=expected_queries,
     )
-    documents = _single_result_list(
+    documents_batch = _batch_result_list(
         query_result,
         "documents",
+        expected_queries=expected_queries,
     )
-    metadatas = _single_result_list(
+    metadatas_batch = _batch_result_list(
         query_result,
         "metadatas",
+        expected_queries=expected_queries,
     )
-    distances = _single_result_list(
+    distances_batch = _batch_result_list(
         query_result,
         "distances",
+        expected_queries=expected_queries,
     )
 
+    results: list[list[KnowledgeSearchMatch]] = []
+
+    for query_index in range(expected_queries):
+        results.append(
+            _matches_from_single_query_result(
+                ids=ids_batch[query_index],
+                documents=documents_batch[query_index],
+                metadatas=metadatas_batch[query_index],
+                distances=distances_batch[query_index],
+            ),
+        )
+
+    return results
+
+
+def _matches_from_single_query_result(
+    *,
+    ids: list[object],
+    documents: list[object],
+    metadatas: list[object],
+    distances: list[object],
+) -> list[KnowledgeSearchMatch]:
     result_length = len(ids)
 
     if (
@@ -310,6 +440,47 @@ def _matches_from_query_result(
         )
 
     return matches
+
+
+def _batch_result_list(
+    query_result: Mapping[str, object],
+    field_name: str,
+    *,
+    expected_queries: int,
+) -> list[list[object]]:
+    value = query_result.get(
+        field_name,
+    )
+
+    if not isinstance(
+        value,
+        list,
+    ):
+        raise ChromaKnowledgeInvalidRecordError(
+            f"O Chroma não retornou o campo '{field_name}'.",
+        )
+
+    if len(value) != expected_queries:
+        raise ChromaKnowledgeInvalidRecordError(
+            "O Chroma retornou quantidade externa inconsistente de resultados.",
+        )
+
+    batch: list[list[object]] = []
+
+    for inner_value in value:
+        if not isinstance(
+            inner_value,
+            list,
+        ):
+            raise ChromaKnowledgeInvalidRecordError(
+                f"O campo '{field_name}' retornado pelo Chroma é inválido.",
+            )
+
+        batch.append(
+            inner_value,
+        )
+
+    return batch
 
 
 def _single_result_list(

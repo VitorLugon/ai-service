@@ -259,7 +259,7 @@ A Semana 3 introduz embeddings para representar consultas e artigos da base de
 conhecimento como vetores numéricos. A Semana 4 adiciona persistência local no
 Chroma para os embeddings dos artigos e integra o endpoint HTTP a esse backend.
 
-O fluxo implementado é:
+O fluxo do endpoint HTTP é:
 
 ```text
 knowledge/articles.json
@@ -299,6 +299,10 @@ vazias, dimensões diferentes e vetores nulos.
 
 O índice em memória permanece disponível para testes, avaliação e fallback
 explícito de desenvolvimento. O endpoint HTTP usa Chroma persistente.
+
+Filtros são representados por `KnowledgeSearchFilter`, em
+`app/schemas/knowledge.py`. O schema conhece apenas conceitos de domínio, como
+`category`, e não expõe a sintaxe `where` do Chroma para rotas ou clientes.
 
 Esta etapa não inclui:
 
@@ -606,6 +610,7 @@ Na busca, o backend:
 - valida o embedding recebido;
 - limita `n_results` ao tamanho da coleção;
 - chama `collection.query` com `query_embeddings` explícito;
+- envia `where` quando existe filtro de categoria;
 - solicita apenas documentos, metadatas e distâncias;
 - reconstrói `KnowledgeArticle` a partir de ID, documento e metadata;
 - converte distância de cosseno para similaridade com `score = 1 - distance`;
@@ -613,6 +618,23 @@ Na busca, o backend:
 
 Respostas incompletas ou inconsistentes do Chroma são rejeitadas com erro claro.
 O backend não interpreta distância como similaridade sem conversão.
+
+O Dia 6 adiciona `search_filtered()` e `search_many()` ao backend concreto sem
+alterar o protocolo básico `KnowledgeSearchBackend`. A busca individual delega
+para a validação comum em lote quando apropriado. Em batch, a resposta do Chroma
+é validada em duas camadas:
+
+- quantidade externa igual à quantidade de queries;
+- quantidades internas consistentes entre IDs, documentos, metadatas e
+  distâncias para cada query.
+
+O filtro de categoria é convertido para:
+
+```python
+{"category": {"$eq": "<valor-do-enum>"}}
+```
+
+Esse dicionário é montado somente na camada de infraestrutura Chroma.
 
 O serviço `app/services/knowledge_collection_service.py` concentra manutenção
 por ID. Atualizações verificam a existência com `collection.get(ids=[...])`,
@@ -677,6 +699,44 @@ Durante a requisição, `KnowledgeSearchService` chama
 `EmbeddingService.embed_text()` somente para a query e repassa o embedding ao
 `ChromaKnowledgeSearchBackend`. O backend consulta a coleção com
 `query_embeddings` explícito; o Chroma não gera embeddings.
+
+Quando `category` é informado no request, a rota cria `KnowledgeSearchFilter` e
+o serviço usa a capacidade filtrada do backend por protocolo, sem depender da
+classe concreta do Chroma.
+
+## API de Busca Em Lote
+
+O Dia 6 adiciona:
+
+```http
+POST /internal/knowledge/search/batch
+```
+
+O endpoint usa a mesma autenticação interna por `X-API-Key`. O request contém
+`queries`, `top_k` e `category` opcional. O lote aceita de 1 a 20 consultas, e
+cada consulta é normalizada antes da geração de embeddings.
+
+O fluxo é:
+
+```text
+KnowledgeBatchSearchService
+        |
+        v
+EmbeddingService.embed_texts(queries)
+        |
+        v
+ChromaKnowledgeSearchBackend.search_many()
+        |
+        v
+collection.query(query_embeddings=[...])
+        |
+        v
+KnowledgeBatchSearchResponse
+```
+
+O serviço batch valida a quantidade de embeddings e a quantidade de rankings
+retornados, preservando a ordem das queries. Ele exige backend com capacidade
+`search_many()` por protocolo e não chama `embed_text()` em loop.
 
 Esse desenho mantém a camada HTTP separada da lógica de similaridade e permite
 que os testes substituam a dependência por um serviço falso, sem instanciar

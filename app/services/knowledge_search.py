@@ -1,11 +1,12 @@
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.knowledge.search_backend import KnowledgeSearchBackend
 from app.knowledge.text import build_knowledge_article_embedding_text
 from app.knowledge.vector_index import KnowledgeVectorIndex
 from app.schemas.knowledge import (
     KnowledgeArticle,
+    KnowledgeSearchFilter,
     KnowledgeSearchMatch,
 )
 
@@ -28,6 +29,20 @@ class EmbeddingProvider(Protocol):
         texts: Sequence[str],
     ) -> list[list[float]]:
         """Gera embeddings para vários textos."""
+
+
+@runtime_checkable
+class FilteredKnowledgeSearchBackend(Protocol):
+    """Capacidade opcional de busca com filtro."""
+
+    def search_filtered(
+        self,
+        query_embedding: Sequence[float],
+        *,
+        top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
+    ) -> list[KnowledgeSearchMatch]:
+        """Busca usando filtro de domínio opcional."""
 
 
 class KnowledgeSearchService:
@@ -58,6 +73,7 @@ class KnowledgeSearchService:
         query: str,
         *,
         top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
     ) -> list[KnowledgeSearchMatch]:
         """Busca os artigos semanticamente mais relevantes."""
 
@@ -72,9 +88,24 @@ class KnowledgeSearchService:
             normalized_query,
         )
 
-        return self._index.search(
+        if search_filter is None:
+            return self._index.search(
+                query_embedding,
+                top_k=top_k,
+            )
+
+        if not isinstance(
+            self._index,
+            FilteredKnowledgeSearchBackend,
+        ):
+            raise TypeError(
+                "O backend de busca não suporta filtros.",
+            )
+
+        return self._index.search_filtered(
             query_embedding,
             top_k=top_k,
+            search_filter=search_filter,
         )
 
 

@@ -26,8 +26,10 @@ from app.main import app
 from app.prompts.ticket_classification import PromptStrategy
 from app.schemas.knowledge import (
     KnowledgeArticle,
+    KnowledgeSearchFilter,
     KnowledgeSearchMatch,
 )
+from app.schemas.tickets import TicketCategory
 from app.services.knowledge_search import KnowledgeSearchService
 
 
@@ -75,18 +77,20 @@ class FakeKnowledgeSearchService:
                 0.95,
             ),
         ]
-        self.calls: list[tuple[str, int]] = []
+        self.calls: list[tuple[str, int, KnowledgeSearchFilter | None]] = []
 
     async def search(
         self,
         query: str,
         *,
         top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
     ) -> list[KnowledgeSearchMatch]:
         self.calls.append(
             (
                 query,
                 top_k,
+                search_filter,
             ),
         )
 
@@ -259,6 +263,7 @@ def test_search_knowledge_returns_matches(
         (
             "Redefini minha senha e ainda não consigo entrar",
             1,
+            None,
         ),
     ]
 
@@ -300,8 +305,57 @@ def test_search_knowledge_uses_default_top_k(
         (
             "Recuperar senha",
             3,
+            None,
         ),
     ]
+
+
+def test_search_knowledge_accepts_category_filter(
+    knowledge_search_client: TestClient,
+    fake_knowledge_search_service: FakeKnowledgeSearchService,
+    api_key: str,
+) -> None:
+    response = knowledge_search_client.post(
+        "/internal/knowledge/search",
+        headers={
+            "X-API-Key": api_key,
+        },
+        json={
+            "query": "Minha conta foi suspensa após pagamento",
+            "top_k": 2,
+            "category": "cobranca",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert fake_knowledge_search_service.calls == [
+        (
+            "Minha conta foi suspensa após pagamento",
+            2,
+            KnowledgeSearchFilter(
+                category=TicketCategory.BILLING,
+            ),
+        ),
+    ]
+
+
+def test_search_knowledge_rejects_invalid_category(
+    knowledge_search_client: TestClient,
+    api_key: str,
+) -> None:
+    response = knowledge_search_client.post(
+        "/internal/knowledge/search",
+        headers={
+            "X-API-Key": api_key,
+        },
+        json={
+            "query": "Minha conta foi suspensa após pagamento",
+            "top_k": 2,
+            "category": "billing",
+        },
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_search_knowledge_rejects_missing_api_key(
@@ -601,11 +655,13 @@ def test_search_knowledge_maps_provider_errors(
         query: str,
         *,
         top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
     ) -> list[KnowledgeSearchMatch]:
         service.calls.append(
             (
                 query,
                 top_k,
+                search_filter,
             ),
         )
 
@@ -647,11 +703,13 @@ def test_search_knowledge_rate_limit_includes_retry_after(
         query: str,
         *,
         top_k: int = 3,
+        search_filter: KnowledgeSearchFilter | None = None,
     ) -> list[KnowledgeSearchMatch]:
         service.calls.append(
             (
                 query,
                 top_k,
+                search_filter,
             ),
         )
 

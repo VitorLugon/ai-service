@@ -67,21 +67,28 @@ class FakeEmbeddingsResource:
         self.calls.append(
             kwargs,
         )
-
         texts = kwargs["input"]
+
         assert isinstance(
             texts,
             list,
         )
 
-        return FakeEmbeddingResponse(
+        embeddings = [
             [
-                [
-                    1.0,
-                    0.0,
-                ]
-                for _ in texts
-            ],
+                0.0,
+                1.0,
+            ]
+            if "erro" in text or "técnico" in text
+            else [
+                1.0,
+                0.0,
+            ]
+            for text in texts
+        ]
+
+        return FakeEmbeddingResponse(
+            embeddings,
         )
 
 
@@ -115,21 +122,12 @@ class FakeAsyncOpenAI:
         return None
 
 
-class SpyChromaCollection:
+class SpyBatchCollection:
     def __init__(self) -> None:
         self.query_calls: list[dict[str, object]] = []
-        self.upsert_calls: list[dict[str, object]] = []
 
     def count(self) -> int:
-        return 3
-
-    def upsert(
-        self,
-        **kwargs: object,
-    ) -> None:
-        self.upsert_calls.append(
-            kwargs,
-        )
+        return 12
 
     def query(
         self,
@@ -141,10 +139,10 @@ class SpyChromaCollection:
     ) -> Mapping[str, object]:
         self.query_calls.append(
             {
-                "query_embeddings": query_embeddings,
+                "query_embeddings": [list(embedding) for embedding in query_embeddings],
                 "n_results": n_results,
                 "where": where,
-                "include": include,
+                "include": list(include),
             },
         )
 
@@ -152,30 +150,32 @@ class SpyChromaCollection:
             "ids": [
                 [
                     "recover-account-access",
-                ],
+                ]
+                for _ in query_embeddings
             ],
             "documents": [
                 [
                     VALID_DOCUMENT,
-                ],
+                ]
+                for _ in query_embeddings
             ],
             "metadatas": [
                 [
                     VALID_METADATA,
-                ],
+                ]
+                for _ in query_embeddings
             ],
             "distances": [
                 [
                     0.0,
-                ],
+                ]
+                for _ in query_embeddings
             ],
         }
 
 
 def create_settings(
     tmp_path: Path,
-    *,
-    collection_name: str = "knowledge-api-chroma-test",
 ) -> Settings:
     return Settings(
         _env_file=None,
@@ -188,7 +188,7 @@ def create_settings(
         openai_embedding_model="text-embedding-test",
         openai_prompt_strategy=PromptStrategy.ONE_SHOT,
         chroma_persist_directory=tmp_path,
-        chroma_collection_name=collection_name,
+        chroma_collection_name="knowledge-batch-api-test",
         chroma_schema_version=1,
     )
 
@@ -196,16 +196,16 @@ def create_settings(
 def create_article(
     article_id: str,
     *,
-    title: str,
     category: TicketCategory,
-    keywords: list[str],
 ) -> KnowledgeArticle:
     return KnowledgeArticle(
         id=article_id,
-        title=title,
-        content=f"Conteúdo sintético suficiente para o artigo {article_id}.",
+        title=f"Artigo {article_id}",
+        content=f"Conteúdo sintético suficiente para validar {article_id}.",
         category=category,
-        keywords=keywords,
+        keywords=[
+            "teste",
+        ],
     )
 
 
@@ -235,7 +235,7 @@ def add_article(
     )
 
 
-def test_knowledge_search_endpoint_uses_chroma_backend(
+def test_batch_search_endpoint_uses_chroma_backend(
     tmp_path: Path,
 ) -> None:
     settings = create_settings(
@@ -254,12 +254,7 @@ def test_knowledge_search_endpoint_uses_chroma_backend(
         collection,
         create_article(
             "recover-account-access",
-            title="Como recuperar o acesso à conta",
             category=TicketCategory.ACCESS_AND_AUTHENTICATION,
-            keywords=[
-                "senha",
-                "login",
-            ],
         ),
         [
             1.0,
@@ -269,28 +264,8 @@ def test_knowledge_search_endpoint_uses_chroma_backend(
     add_article(
         collection,
         create_article(
-            "configure-multi-factor-authentication",
-            title="Como configurar autenticação em dois fatores",
-            category=TicketCategory.ACCESS_AND_AUTHENTICATION,
-            keywords=[
-                "mfa",
-                "segurança",
-            ],
-        ),
-        [
-            0.8,
-            0.2,
-        ],
-    )
-    add_article(
-        collection,
-        create_article(
-            "identify-unsupported-request",
-            title="Como tratar uma solicitação não suportada",
-            category=TicketCategory.OTHER,
-            keywords=[
-                "triagem",
-            ],
+            "solve-technical-error",
+            category=TicketCategory.TECHNICAL_ERROR,
         ),
         [
             0.0,
@@ -311,13 +286,16 @@ def test_knowledge_search_endpoint_uses_chroma_backend(
     ):
         with TestClient(app) as test_client:
             response = test_client.post(
-                "/internal/knowledge/search",
+                "/internal/knowledge/search/batch",
                 headers={
                     "X-API-Key": "test-internal-api-key",
                 },
                 json={
-                    "query": "  Redefini minha senha, mas ainda não consigo entrar  ",
-                    "top_k": 2,
+                    "queries": [
+                        "não consigo entrar",
+                        "erro técnico no sistema",
+                    ],
+                    "top_k": 1,
                 },
             )
 
@@ -325,26 +303,33 @@ def test_knowledge_search_endpoint_uses_chroma_backend(
 
     body = response.json()
 
-    assert body["query"] == "Redefini minha senha, mas ainda não consigo entrar"
-    assert body["model"] == "text-embedding-test"
-    assert body["indexed_articles"] == 3
-    assert len(body["matches"]) == 2
-    assert body["matches"][0]["article"]["id"] == "recover-account-access"
+    assert body["indexed_articles"] == 2
+    assert [item["query"] for item in body["results"]] == [
+        "não consigo entrar",
+        "erro técnico no sistema",
+    ]
+    assert body["results"][0]["matches"][0]["article"]["id"] == (
+        "recover-account-access"
+    )
+    assert body["results"][1]["matches"][0]["article"]["id"] == (
+        "solve-technical-error"
+    )
     assert FakeAsyncOpenAI.instances[0].client.embeddings.calls == [
         {
             "model": "text-embedding-test",
             "input": [
-                "Redefini minha senha, mas ainda não consigo entrar",
+                "não consigo entrar",
+                "erro técnico no sistema",
             ],
             "encoding_format": "float",
         },
     ]
 
 
-def test_search_request_embeds_only_the_query(
+def test_batch_search_uses_single_embedding_and_vector_query_batch(
     tmp_path: Path,
 ) -> None:
-    collection = SpyChromaCollection()
+    collection = SpyBatchCollection()
     settings = create_settings(
         tmp_path,
     )
@@ -354,6 +339,12 @@ def test_search_request_embeds_only_the_query(
             collection,
         ),
     )
+    queries = [
+        f"consulta {index}"
+        for index in range(
+            10,
+        )
+    ]
     FakeAsyncOpenAI.instances = []
 
     with patch(
@@ -362,42 +353,24 @@ def test_search_request_embeds_only_the_query(
     ):
         with TestClient(app) as test_client:
             response = test_client.post(
-                "/internal/knowledge/search",
+                "/internal/knowledge/search/batch",
                 headers={
                     "X-API-Key": "test-internal-api-key",
                 },
                 json={
-                    "query": "Recuperar senha",
-                    "top_k": 1,
+                    "queries": queries,
+                    "top_k": 3,
+                    "category": "acesso_e_autenticacao",
                 },
             )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["indexed_articles"] == 3
-    assert FakeAsyncOpenAI.instances[0].client.embeddings.calls == [
-        {
-            "model": "text-embedding-test",
-            "input": [
-                "Recuperar senha",
-            ],
-            "encoding_format": "float",
+    assert len(FakeAsyncOpenAI.instances[0].client.embeddings.calls) == 1
+    assert FakeAsyncOpenAI.instances[0].client.embeddings.calls[0]["input"] == queries
+    assert len(collection.query_calls) == 1
+    assert len(collection.query_calls[0]["query_embeddings"]) == 10
+    assert collection.query_calls[0]["where"] == {
+        "category": {
+            "$eq": "acesso_e_autenticacao",
         },
-    ]
-    assert collection.query_calls == [
-        {
-            "query_embeddings": [
-                [
-                    1.0,
-                    0.0,
-                ],
-            ],
-            "n_results": 1,
-            "where": None,
-            "include": [
-                "documents",
-                "metadatas",
-                "distances",
-            ],
-        },
-    ]
-    assert collection.upsert_calls == []
+    }
