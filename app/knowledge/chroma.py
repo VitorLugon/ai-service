@@ -54,7 +54,7 @@ def get_or_create_knowledge_collection(
         schema_version,
     )
 
-    expected_metadata = _build_collection_metadata(
+    expected_metadata = build_knowledge_collection_metadata(
         schema_version=schema_version,
         embedding_model=normalized_embedding_model,
     )
@@ -72,7 +72,44 @@ def get_or_create_knowledge_collection(
         embedding_function=None,
     )
 
-    _validate_collection_metadata(
+    validate_knowledge_collection_metadata(
+        collection.metadata,
+        expected_metadata=expected_metadata,
+    )
+
+    return collection
+
+
+def get_existing_knowledge_collection(
+    client: ClientAPI,
+    *,
+    name: str,
+    schema_version: int,
+    embedding_model: str,
+) -> Collection:
+    """Obtém uma coleção existente da base de conhecimento."""
+
+    normalized_name = _validate_collection_name(
+        name,
+    )
+    normalized_embedding_model = _validate_embedding_model(
+        embedding_model,
+    )
+    _validate_schema_version(
+        schema_version,
+    )
+
+    expected_metadata = build_knowledge_collection_metadata(
+        schema_version=schema_version,
+        embedding_model=normalized_embedding_model,
+    )
+
+    collection = client.get_collection(
+        name=normalized_name,
+        embedding_function=None,
+    )
+
+    validate_knowledge_collection_metadata(
         collection.metadata,
         expected_metadata=expected_metadata,
     )
@@ -115,11 +152,13 @@ def _validate_embedding_model(
     return normalized_embedding_model
 
 
-def _build_collection_metadata(
+def build_knowledge_collection_metadata(
     *,
     schema_version: int,
     embedding_model: str,
 ) -> Metadata:
+    """Monta a metadata esperada para a coleção de conhecimento."""
+
     return {
         "description": COLLECTION_DESCRIPTION,
         "schema_version": schema_version,
@@ -127,11 +166,13 @@ def _build_collection_metadata(
     }
 
 
-def _validate_collection_metadata(
+def validate_knowledge_collection_metadata(
     metadata: Mapping[str, object] | None,
     *,
     expected_metadata: Mapping[str, object],
 ) -> None:
+    """Valida se a metadata da coleção corresponde à configuração atual."""
+
     actual_metadata = cast(
         Mapping[str, object],
         metadata or {},

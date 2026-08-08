@@ -3,8 +3,10 @@ from collections.abc import Mapping, Sequence
 from math import isfinite
 from typing import Protocol
 
+from chromadb.errors import ChromaError
 from pydantic import ValidationError
 
+from app.core.exceptions import KnowledgeStoreUnavailableError
 from app.schemas.knowledge import KnowledgeArticle, KnowledgeSearchMatch
 from app.schemas.tickets import TicketCategory
 
@@ -48,7 +50,12 @@ class ChromaKnowledgeSearchBackend:
     def size(self) -> int:
         """Retorna a quantidade de registros persistidos."""
 
-        count = self._collection.count()
+        try:
+            count = self._collection.count()
+        except ChromaError as error:
+            raise KnowledgeStoreUnavailableError(
+                "Não foi possível consultar a contagem da coleção Chroma.",
+            ) from error
 
         if (
             not isinstance(
@@ -85,20 +92,25 @@ class ChromaKnowledgeSearchBackend:
         if collection_size == 0:
             return []
 
-        query_result = self._collection.query(
-            query_embeddings=[
-                list(normalized_query_embedding),
-            ],
-            n_results=min(
-                top_k,
-                collection_size,
-            ),
-            include=[
-                "documents",
-                "metadatas",
-                "distances",
-            ],
-        )
+        try:
+            query_result = self._collection.query(
+                query_embeddings=[
+                    list(normalized_query_embedding),
+                ],
+                n_results=min(
+                    top_k,
+                    collection_size,
+                ),
+                include=[
+                    "documents",
+                    "metadatas",
+                    "distances",
+                ],
+            )
+        except ChromaError as error:
+            raise KnowledgeStoreUnavailableError(
+                "Não foi possível consultar a coleção Chroma.",
+            ) from error
 
         return _matches_from_query_result(
             query_result,

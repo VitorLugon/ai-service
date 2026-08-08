@@ -71,3 +71,33 @@ class AIProviderInvalidResponseError(AIProviderError):
 
     code = "ai_provider_invalid_response"
     public_message = "AI provider returned an invalid response."
+
+
+class KnowledgeStoreError(RuntimeError):
+    """Erro base relacionado ao armazenamento vetorial de conhecimento."""
+
+    code = "knowledge_store_error"
+    public_message = "Knowledge store request failed."
+    retryable = False
+
+
+class KnowledgeBaseNotIndexedError(KnowledgeStoreError):
+    """Indica que a base persistente ainda não foi indexada."""
+
+    code = "knowledge_base_not_indexed"
+    public_message = "Knowledge base has not been indexed."
+
+
+class KnowledgeStoreConfigurationError(KnowledgeStoreError):
+    """Indica configuração incompatível do armazenamento de conhecimento."""
+
+    code = "knowledge_store_configuration_error"
+    public_message = "Knowledge store configuration is invalid."
+
+
+class KnowledgeStoreUnavailableError(KnowledgeStoreError):
+    """Indica indisponibilidade temporária do armazenamento de conhecimento."""
+
+    code = "knowledge_store_unavailable"
+    public_message = "Knowledge store is temporarily unavailable."
+    retryable = True

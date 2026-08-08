@@ -10,6 +10,7 @@ from app.core.exceptions import (
     AIProviderRateLimitError,
     AIProviderTimeoutError,
     AIProviderUnavailableError,
+    KnowledgeStoreError,
 )
 from app.schemas.errors import ErrorResponse
 
@@ -64,6 +65,25 @@ async def ai_provider_error_handler(
     )
 
 
+async def knowledge_store_error_handler(
+    _: Request,
+    error: Exception,
+) -> JSONResponse:
+    """Transforma falhas do Chroma em respostas HTTP seguras."""
+
+    store_error = cast(KnowledgeStoreError, error)
+    response = ErrorResponse(
+        code=store_error.code,
+        detail=store_error.public_message,
+        retryable=store_error.retryable,
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=response.model_dump(),
+    )
+
+
 def register_exception_handlers(
     application: FastAPI,
 ) -> None:
@@ -72,4 +92,8 @@ def register_exception_handlers(
     application.add_exception_handler(
         AIProviderError,
         ai_provider_error_handler,
+    )
+    application.add_exception_handler(
+        KnowledgeStoreError,
+        knowledge_store_error_handler,
     )

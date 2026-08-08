@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from types import TracebackType
 from unittest.mock import patch
 
@@ -91,6 +91,29 @@ class FakeKnowledgeSearchService:
         )
 
         return self.matches[:top_k]
+
+
+class FakeKnowledgeSearchBackend:
+    """Backend previsível usado nos testes da dependência."""
+
+    def __init__(
+        self,
+        *,
+        size: int = 7,
+    ) -> None:
+        self._size = size
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+    def search(
+        self,
+        query_embedding: Sequence[float],
+        *,
+        top_k: int = 3,
+    ) -> list[KnowledgeSearchMatch]:
+        return []
 
 
 class FakeEmbeddingItem:
@@ -661,10 +684,14 @@ def test_search_knowledge_rate_limit_includes_retry_after(
 
 async def resolve_knowledge_search_service(
     settings: Settings,
+    backend: FakeKnowledgeSearchBackend,
 ) -> KnowledgeSearchService:
     """Resolve a dependência assíncrona em testes."""
 
-    dependency = get_knowledge_search_service(settings)
+    dependency = get_knowledge_search_service(
+        backend,
+        settings,
+    )
 
     async for service in dependency:
         return service
@@ -696,27 +723,30 @@ def test_knowledge_search_dependency_builds_service_without_network() -> None:
     settings = create_settings(
         openai_api_key=SecretStr("test-openai-api-key"),
     )
+    backend = FakeKnowledgeSearchBackend(
+        size=7,
+    )
 
     with patch(
         "app.api.dependencies.knowledge_search.AsyncOpenAI",
         FakeAsyncOpenAI,
     ):
         service = asyncio.run(
-            resolve_knowledge_search_service(settings),
+            resolve_knowledge_search_service(
+                settings,
+                backend,
+            ),
         )
 
     assert service.model == "test-embedding-model"
-    assert service.indexed_articles == 12
+    assert service.indexed_articles == 7
 
     openai_instance = FakeAsyncOpenAI.instances[0]
 
     assert openai_instance.kwargs["timeout"] == 30.0
     assert openai_instance.kwargs["max_retries"] == 2
     assert openai_instance.closed is True
-    assert openai_instance.client.embeddings.calls[0]["model"] == (
-        "test-embedding-model"
-    )
-    assert len(openai_instance.client.embeddings.calls[0]["input"]) == 12
+    assert openai_instance.client.embeddings.calls == []
 
 
 def test_knowledge_search_dependency_rejects_missing_openai_key() -> None:
@@ -726,7 +756,10 @@ def test_knowledge_search_dependency_rejects_missing_openai_key() -> None:
 
     with pytest.raises(AIProviderConfigurationError):
         asyncio.run(
-            resolve_knowledge_search_service(settings),
+            resolve_knowledge_search_service(
+                settings,
+                FakeKnowledgeSearchBackend(),
+            ),
         )
 
 
@@ -737,5 +770,8 @@ def test_knowledge_search_dependency_rejects_blank_openai_key() -> None:
 
     with pytest.raises(AIProviderConfigurationError):
         asyncio.run(
-            resolve_knowledge_search_service(settings),
+            resolve_knowledge_search_service(
+                settings,
+                FakeKnowledgeSearchBackend(),
+            ),
         )

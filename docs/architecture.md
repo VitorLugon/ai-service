@@ -61,6 +61,37 @@ build_ticket_classification_instructions()
 Na API, `get_ticket_classifier` lê `Settings.openai_prompt_strategy` e entrega
 essa estratégia ao `TicketClassifierService`.
 
+## Ciclo De Vida Da Aplicação
+
+`app/main.py` cria a aplicação com lifespan. No startup, a API carrega os
+recursos persistentes necessários para busca semântica e os guarda em
+`ApplicationResources`, definido em `app/core/app_state.py`.
+
+O fluxo de inicialização da busca é:
+
+```text
+FastAPI lifespan
+        |
+        v
+Settings
+        |
+        v
+PersistentClient
+        |
+        v
+get_collection
+        |
+        v
+ChromaKnowledgeSearchBackend
+        |
+        v
+app.state.resources
+```
+
+Em produção, a coleção Chroma precisa existir, ter metadata compatível e conter
+registros. Em testes, o factory da aplicação permite injetar um backend falso,
+evitando acesso a `data/chroma` e chamadas externas.
+
 ## Estrutura de documentação
 
 ```text
@@ -225,8 +256,8 @@ O limite mínimo de cobertura permanece em 90%.
 ## Busca semântica
 
 A Semana 3 introduz embeddings para representar consultas e artigos da base de
-conhecimento como vetores numéricos. No Dia 4, esses vetores passaram a ser
-usados por um índice vetorial em memória e por um serviço assíncrono de busca.
+conhecimento como vetores numéricos. A Semana 4 adiciona persistência local no
+Chroma para os embeddings dos artigos e integra o endpoint HTTP a esse backend.
 
 O fluxo implementado é:
 
@@ -243,7 +274,10 @@ build_knowledge_article_embedding_text
 EmbeddingService
         |
         v
-KnowledgeVectorIndex
+Chroma persistente
+        |
+        v
+ChromaKnowledgeSearchBackend
         |
         v
 KnowledgeSearchService
@@ -263,16 +297,17 @@ OpenAI, da camada HTTP, de Pydantic Settings e de variáveis de ambiente. Ela
 calcula a pontuação por produto escalar e norma dos vetores, rejeitando entradas
 vazias, dimensões diferentes e vetores nulos.
 
+O índice em memória permanece disponível para testes, avaliação e fallback
+explícito de desenvolvimento. O endpoint HTTP usa Chroma persistente.
+
 Esta etapa não inclui:
 
-- banco vetorial;
-- persistência dos embeddings;
 - pipeline RAG;
 - geração de resposta baseada em documentos.
 
-## Estado ao final da Semana 3
+## Estado Atual Da Recuperação Semântica
 
-Ao final da Semana 3, a recuperação semântica está funcional de ponta a ponta:
+A recuperação semântica está funcional de ponta a ponta:
 
 - a base sintética é carregada de `knowledge/articles.json`;
 - os artigos são convertidos para uma representação textual estável;
@@ -280,14 +315,14 @@ Ao final da Semana 3, a recuperação semântica está funcional de ponta a pont
 - `KnowledgeVectorIndex` mantém um índice linear em memória;
 - `KnowledgeSearchService` executa busca top-k;
 - `POST /internal/knowledge/search` expõe a busca como endpoint interno
-  protegido;
+  protegido usando Chroma persistente;
 - `KnowledgeRetrievalEvaluator` avalia diretamente os serviços, sem passar pela
   camada HTTP;
 - as consultas de avaliação são processadas em lote;
 - o MRR usa o ranking completo retornado pelo índice.
 
-Os embeddings ainda não são persistidos, não há banco vetorial e o índice é
-reconstruído conforme o ciclo de vida atual das dependências e scripts.
+Os embeddings dos artigos são persistidos pelo script de indexação da Semana 4.
+O índice em memória não é mais reconstruído pelo endpoint HTTP.
 
 ## EmbeddingService
 
@@ -492,8 +527,8 @@ KnowledgeSearchService
 KnowledgeSearchBackend
        /             \
       v               v
-KnowledgeVectorIndex  Chroma local
-       atual          coleção persistente vazia
+KnowledgeVectorIndex  ChromaKnowledgeSearchBackend
+ avaliação/testes     endpoint HTTP
 ```
 
 `KnowledgeSearchBackend`, em `app/knowledge/search_backend.py`, é um contrato de
@@ -503,11 +538,10 @@ leitura. Ele expõe apenas:
 - `search(query_embedding, top_k=...)`: recuperação semântica estruturada.
 
 Operações de escrita, persistência, reset, upsert ou exclusão não pertencem a
-esse contrato. `KnowledgeVectorIndex` continua sendo a implementação atual do
-endpoint por tipagem estrutural, sem herdar explicitamente do protocolo. A
-integração Chroma atual cria o cliente persistente, valida a coleção e permite
-indexação por script separado; ela ainda não implementa um backend de busca para
-a aplicação.
+esse contrato. `KnowledgeVectorIndex` continua compatível por tipagem
+estrutural, sem herdar explicitamente do protocolo, e permanece útil para
+avaliação e testes. O endpoint HTTP usa `ChromaKnowledgeSearchBackend`
+inicializado no lifespan da aplicação.
 
 `EmbeddingService` continua responsável por gerar vetores. O backend de busca
 recebe o embedding da consulta já calculado e retorna `KnowledgeSearchMatch`.
@@ -530,6 +564,11 @@ fornecidos explicitamente pela aplicação.
 O script `scripts/inspect_chroma_collection.py` usa as configurações da
 aplicação para criar ou validar a coleção persistente local e imprimir sua
 contagem, sem indexar artigos.
+
+O fluxo de leitura da API usa `app/knowledge/chroma_runtime.py`. Ele cria o
+`PersistentClient`, chama `get_collection` com `embedding_function=None`, valida
+schema/modelo na metadata e rejeita coleção ausente ou vazia. Esse runtime não
+usa `get_or_create_collection`, não indexa artigos e não faz `upsert`.
 
 ## Indexação Idempotente
 
@@ -581,8 +620,8 @@ regeneram o embedding via `EmbeddingService` ou provedor compatível e persistem
 com `upsert` usando o mesmo ID. Remoções verificam existência, chamam
 `collection.delete(ids=[...])` e confirmam que a contagem diminuiu em 1.
 
-Essas capacidades preparam a migração futura, mas o endpoint HTTP continua
-usando `KnowledgeVectorIndex`.
+Essas capacidades complementam o backend persistente usado pelo endpoint HTTP,
+mas atualização e remoção ainda não são expostas como rotas.
 
 ## Decisão arquitetural
 
@@ -592,12 +631,12 @@ A decisão de usar Chroma futuramente está registrada em:
 docs/decisions/0001-use-chroma-vector-store.md
 ```
 
-Essa decisão agora está parcialmente implementada: Chroma está instalado, a
-coleção local persistente pode ser criada e validada, e os arquivos em
-`data/chroma` não são versionados. A indexação persistente existe como script
-explícito e idempotente. Leitura, atualização e remoção por ID já existem em
-serviços desacoplados, enquanto o endpoint HTTP continua usando o índice em
-memória.
+Essa decisão agora está implementada no fluxo de leitura do endpoint: Chroma
+está instalado, a coleção local persistente pode ser criada e validada, e os
+arquivos em `data/chroma` não são versionados. A indexação persistente existe
+como script explícito e idempotente. Leitura, atualização e remoção por ID já
+existem em serviços desacoplados; o endpoint HTTP consulta a coleção Chroma já
+indexada.
 
 ## API de Busca
 
@@ -609,38 +648,46 @@ POST /internal/knowledge/search
 
 A rota fica em `app/api/routes/knowledge.py`, usa a mesma autenticação interna
 por `X-API-Key` das demais rotas internas e delega a busca para
-`KnowledgeSearchService`. Ela não calcula similaridade diretamente e não cria
-uma segunda regra de autenticação.
+`KnowledgeSearchService`. Ela não calcula similaridade diretamente, não cria
+uma segunda regra de autenticação e não reconstrói embeddings dos artigos.
 
 Os contratos Pydantic ficam em `app/schemas/knowledge.py`:
 
 - `KnowledgeSearchRequest`: recebe `query` e `top_k`, remove espaços externos
   da consulta, rejeita campos extras e limita `top_k` entre 1 e 10;
 - `KnowledgeSearchResponse`: retorna a consulta normalizada, o modelo de
-  embeddings, a quantidade de artigos indexados e a lista de
+  embeddings, a quantidade de artigos na coleção persistente e a lista de
   `KnowledgeSearchMatch`.
+
+A dependência `get_knowledge_search_backend`, em
+`app/api/dependencies/knowledge_search.py`, obtém o backend já inicializado em
+`app.state.resources`. Ela não lê settings, não abre cliente Chroma, não carrega
+JSON e não gera embeddings.
 
 A dependência `get_knowledge_search_service`, em
 `app/api/dependencies/knowledge_search.py`, é responsável por:
 
+- obter o backend persistente do estado da aplicação;
 - validar a configuração da OpenAI;
-- carregar `knowledge/articles.json`;
 - criar `EmbeddingService`;
-- gerar embeddings temporários dos artigos;
-- construir `KnowledgeVectorIndex`;
 - disponibilizar `KnowledgeSearchService`;
 - fechar o cliente assíncrono da OpenAI ao final da requisição.
+
+Durante a requisição, `KnowledgeSearchService` chama
+`EmbeddingService.embed_text()` somente para a query e repassa o embedding ao
+`ChromaKnowledgeSearchBackend`. O backend consulta a coleção com
+`query_embeddings` explícito; o Chroma não gera embeddings.
 
 Esse desenho mantém a camada HTTP separada da lógica de similaridade e permite
 que os testes substituam a dependência por um serviço falso, sem instanciar
 `AsyncOpenAI` e sem acessar rede.
 
-A busca real na base sintética pode ser exercitada com:
+A busca real no endpoint exige coleção indexada previamente:
 
 ```powershell
-python -m scripts.search_knowledge_base_smoke_test
+python -m scripts.index_knowledge_base
 ```
 
-Esse script usa a API real da OpenAI, gera embeddings temporários para os
-artigos, constrói o índice em memória e executa uma consulta sintética com
-resultados top-k. Ele não persiste vetores e não roda no `pytest`.
+O smoke test em memória `scripts.search_knowledge_base_smoke_test` continua
+disponível para validações manuais separadas. Ele não representa o fluxo atual
+do endpoint HTTP.

@@ -36,7 +36,10 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - categorias e palavras-chave para artigos;
 - representação textual estável para embeddings;
 - índice vetorial em memória;
+- armazenamento vetorial persistente local com Chroma;
+- indexação idempotente dos artigos com `upsert`;
 - busca semântica por similaridade de cosseno;
+- endpoint de busca integrado ao Chroma persistente;
 - recuperação de resultados top-k;
 - ordenação determinística em caso de empate;
 - serviço de busca desacoplado do cliente da OpenAI;
@@ -52,6 +55,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - FastAPI
 - OpenAI Python SDK
 - OpenAI Responses API
+- Chroma
 - Pydantic
 - pydantic-settings
 - pytest
@@ -71,7 +75,7 @@ ai-service/
 │   │   ├── exception_handlers.py
 │   │   └── router.py
 │   ├── core/              # Configurações, segurança e exceções
-│   ├── knowledge/         # Carregamento, texto e índice vetorial em memória
+│   ├── knowledge/         # Carregamento, texto, Chroma e índices de busca
 │   ├── prompts/           # Estratégias e instruções
 │   ├── schemas/           # Contratos Pydantic
 │   ├── services/          # Regras e integrações
@@ -286,8 +290,9 @@ Esse comando utiliza a API real e pode consumir créditos.
 
 Embeddings representam textos como vetores numéricos. A Semana 3 usa esses
 vetores para busca semântica em memória, comparando consultas e artigos com
-similaridade de cosseno. Ainda não há banco vetorial, persistência de embeddings
-ou resposta final de um sistema RAG.
+similaridade de cosseno. A Semana 4 adiciona persistência local no Chroma para
+os embeddings dos artigos. O Chroma recebe vetores explícitos da aplicação e não
+usa função própria de embeddings.
 
 Configure o `.env` e execute:
 
@@ -312,7 +317,7 @@ SDK para os erros internos da aplicação.
 
 Esses comandos podem consumir créditos e não fazem parte do `pytest`. Os testes
 automatizados usam cliente simulado e matemática vetorial local; eles não
-acessam a OpenAI. Os vetores ainda não são persistidos e não existe RAG.
+acessam a OpenAI. Não existe RAG.
 
 ## Base de conhecimento
 
@@ -341,15 +346,17 @@ com dois artigos para cada categoria de chamado. O ID técnico identifica o
 artigo no arquivo, mas não entra no texto usado para embeddings. A representação
 textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem.
 
-Nesta etapa, embeddings ainda não são armazenados. Também não existe banco
-vetorial ou resposta RAG.
+Os embeddings persistentes dos artigos são criados somente pelo script explícito
+de indexação no Chroma. O endpoint de busca exige essa indexação prévia e não
+recalcula embeddings dos artigos por requisição. Ainda não existe resposta RAG.
 
 ## Recuperação semântica
 
-A recuperação semântica atual usa uma base sintética de conhecimento, geração
-de embeddings, índice em memória, busca semântica top-k, endpoint interno e
-avaliação quantitativa da recuperação. A busca atual é linear sobre os artigos
-indexados e é adequada ao protótipo com 12 artigos.
+A recuperação semântica atual usa uma base sintética de conhecimento,
+embeddings, busca semântica top-k, endpoint interno, armazenamento persistente
+local no Chroma e avaliação quantitativa da recuperação. O endpoint HTTP
+consulta a coleção persistente; o índice em memória continua disponível para
+scripts, testes e avaliações determinísticas.
 
 ```text
 knowledge/articles.json
@@ -361,7 +368,10 @@ texto estável dos artigos
 EmbeddingService
         |
         v
-KnowledgeVectorIndex
+Chroma persistente
+        |
+        v
+ChromaKnowledgeSearchBackend
         |
         v
 KnowledgeSearchService
@@ -373,9 +383,15 @@ list[KnowledgeSearchMatch]
 `KnowledgeVectorIndex` recebe os artigos e seus embeddings já calculados,
 valida os vetores, calcula similaridade de cosseno, ordena os resultados por
 maior pontuação e usa o ID do artigo como critério determinístico de desempate.
-`KnowledgeSearchService` depende apenas de um provedor assíncrono com
-`embed_text()` e do índice em memória, por isso a busca fica desacoplada do
-cliente concreto da OpenAI.
+Ele permanece disponível para avaliação, testes e fallback explícito de
+desenvolvimento.
+
+No endpoint real, `ChromaKnowledgeSearchBackend` recebe apenas o embedding da
+query, consulta a coleção Chroma com `query_embeddings`, converte distância de
+cosseno em score e retorna `KnowledgeSearchMatch`. `KnowledgeSearchService`
+depende apenas de um provedor assíncrono com `embed_text()` e de um backend de
+busca, por isso a busca fica desacoplada do cliente concreto da OpenAI e do
+mecanismo de armazenamento.
 
 Comandos úteis:
 
@@ -399,8 +415,8 @@ O baseline real e a análise estão documentados em
 [`docs/evaluation.md`](docs/evaluation.md) e o fechamento técnico da semana está
 em [`docs/week-3-review.md`](docs/week-3-review.md).
 
-Ainda não existe banco vetorial, os embeddings não são persistidos, o índice é
-reconstruído conforme o ciclo de vida atual e não existe resposta RAG.
+Não existe resposta RAG. A avaliação quantitativa da recuperação continua
+independente do endpoint HTTP.
 
 Para executar somente uma busca semântica real na base sintética:
 
@@ -419,7 +435,7 @@ POST /internal/knowledge/search
 ```
 
 O endpoint exige `X-API-Key`, recebe uma consulta e retorna os artigos mais
-próximos semanticamente na base sintética.
+próximos semanticamente na coleção persistente do Chroma.
 
 Requisição:
 
@@ -441,7 +457,7 @@ Resposta:
 
 - `query`: consulta normalizada;
 - `model`: modelo de embeddings configurado;
-- `indexed_articles`: quantidade de artigos no índice em memória;
+- `indexed_articles`: quantidade de artigos na coleção persistente;
 - `matches`: lista de resultados;
 - `matches[].article`: artigo recuperado, com `id`, `title`, `content`,
   `category` e `keywords`;
@@ -450,6 +466,9 @@ Resposta:
 Os valores de `score` dependem dos embeddings gerados no momento da consulta. A
 resposta não inclui uma resposta RAG final; ela apenas retorna os artigos
 recuperados e suas pontuações.
+
+Por requisição, o endpoint gera somente o embedding da query. Os embeddings dos
+artigos são reaproveitados do Chroma e não são recalculados.
 
 Erros documentados no OpenAPI:
 
@@ -494,15 +513,16 @@ embeddings, não chama o endpoint HTTP e não gera resposta RAG.
 
 ## Semana 4 — Armazenamento vetorial
 
-A busca semântica foi preparada para receber armazenamento vetorial
-persistente. `KnowledgeSearchService` depende de um contrato de leitura,
+A busca semântica usa armazenamento vetorial persistente local no endpoint
+HTTP. `KnowledgeSearchService` depende de um contrato de leitura,
 `KnowledgeSearchBackend`, em vez de depender diretamente de uma implementação
 concreta de índice.
 
-`chromadb` está instalado e a integração básica com `PersistentClient` cria ou
-obtém uma coleção local persistente. `KnowledgeVectorIndex` continua sendo a
-implementação utilizada pelo endpoint HTTP; a indexação no Chroma é executada
-por script separado e ainda não substitui a busca em memória.
+`chromadb` está instalado e a integração com `PersistentClient` mantém uma
+coleção local persistente. A indexação no Chroma é executada por script
+separado; a aplicação abre a coleção existente no startup e falha de forma clara
+quando a base ainda não foi indexada, está vazia ou possui metadata
+incompatível.
 
 Configuração atual:
 
@@ -513,6 +533,7 @@ Configuração atual:
 - distância de cosseno;
 - função de embeddings do Chroma desabilitada;
 - geração de vetores continua no `EmbeddingService`;
+- endpoint `/internal/knowledge/search` consultando Chroma;
 - estimativa local de tokens com `tiktoken`;
 - custo estimado por configuração, sem chamada de billing.
 
@@ -537,6 +558,41 @@ chamada real, ele calcula uma estimativa determinística de tokens e custo. A
 persistência usa `collection.upsert` com `KnowledgeArticle.id` como ID do
 Chroma, portanto reexecutar o script atualiza os mesmos 12 registros sem criar
 duplicatas.
+
+### Busca semântica com armazenamento persistente
+
+Antes de iniciar a API para busca real, a coleção precisa existir e conter os
+artigos indexados:
+
+```powershell
+python -m scripts.index_knowledge_base
+```
+
+Fluxo do endpoint:
+
+```text
+Request HTTP
+        |
+        v
+EmbeddingService
+        |
+        v
+embedding da query
+        |
+        v
+ChromaKnowledgeSearchBackend
+        |
+        v
+coleção persistente
+        |
+        v
+KnowledgeSearchMatch[]
+```
+
+Durante o startup, a aplicação abre a coleção existente com
+`embedding_function=None`, valida schema, modelo de embedding e contagem maior
+que zero. Durante cada request, somente a query é enviada ao provedor de
+embeddings. Os embeddings dos artigos são reaproveitados do Chroma.
 
 ### Consulta direta no Chroma
 
@@ -570,15 +626,16 @@ docs/decisions/0001-use-chroma-vector-store.md
 Nesta etapa:
 
 - Chroma foi instalado como dependência do projeto;
-- a coleção local persistente pode ser criada pelo script de inspeção;
+- a coleção local persistente pode ser criada pelo script de indexação;
 - os 12 artigos podem ser indexados de forma idempotente por script separado;
 - a coleção persistente pode ser consultada por backend Chroma desacoplado;
+- o endpoint HTTP usa o backend Chroma inicializado no lifespan da aplicação;
 - atualização e remoção por ID existem como serviço interno;
 - `data/chroma` é ignorado pelo Git;
 - embeddings reais só são persistidos quando o script de indexação é executado;
 - filtros por metadados ainda não foram implementados;
-- o endpoint HTTP não foi migrado para Chroma;
-- a busca continua usando o índice em memória.
+- a busca em memória continua disponível para avaliação, testes e fallback
+  explícito de desenvolvimento.
 
 ## Classificação de chamados
 
@@ -981,6 +1038,9 @@ Os testes verificam:
 - similaridade de cosseno;
 - índice vetorial em memória;
 - busca semântica com provedor falso.
+- backend Chroma persistente com coleção temporária;
+- endpoint de busca usando Chroma sem acessar OpenAI;
+- garantia de que a request de busca embute somente a query.
 
 Os testes:
 
@@ -1040,7 +1100,6 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 
 ## Próximas funcionalidades
 
-- persistência ou reconstrução controlada dos embeddings da base;
 - geração de resposta RAG com artigos recuperados;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
