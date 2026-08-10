@@ -401,3 +401,65 @@ def test_search_request_embeds_only_the_query(
         },
     ]
     assert collection.upsert_calls == []
+
+
+def test_search_requests_reuse_lifespan_backend_without_reembedding_articles(
+    tmp_path: Path,
+) -> None:
+    collection = SpyChromaCollection()
+    settings = create_settings(
+        tmp_path,
+    )
+    backend = ChromaKnowledgeSearchBackend(
+        collection,
+    )
+    app = create_application(
+        settings=settings,
+        knowledge_search_backend=backend,
+    )
+    FakeAsyncOpenAI.instances = []
+
+    with patch(
+        "app.api.dependencies.knowledge_search.AsyncOpenAI",
+        FakeAsyncOpenAI,
+    ):
+        with TestClient(app) as test_client:
+            first_response = test_client.post(
+                "/internal/knowledge/search",
+                headers={
+                    "X-API-Key": "test-internal-api-key",
+                },
+                json={
+                    "query": "Recuperar senha",
+                    "top_k": 1,
+                },
+            )
+            second_response = test_client.post(
+                "/internal/knowledge/search",
+                headers={
+                    "X-API-Key": "test-internal-api-key",
+                },
+                json={
+                    "query": "Acessar conta",
+                    "top_k": 1,
+                },
+            )
+
+            assert app.state.resources.knowledge_search_backend is backend
+
+    assert first_response.status_code == status.HTTP_200_OK
+    assert second_response.status_code == status.HTTP_200_OK
+    assert len(FakeAsyncOpenAI.instances) == 2
+    assert [
+        instance.client.embeddings.calls[0]["input"]
+        for instance in FakeAsyncOpenAI.instances
+    ] == [
+        [
+            "Recuperar senha",
+        ],
+        [
+            "Acessar conta",
+        ],
+    ]
+    assert len(collection.query_calls) == 2
+    assert collection.upsert_calls == []

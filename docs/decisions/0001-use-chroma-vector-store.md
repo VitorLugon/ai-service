@@ -2,7 +2,7 @@
 
 ## Status
 
-Aceita.
+Implementada.
 
 ## Contexto
 
@@ -17,12 +17,12 @@ busca por categoria, versão ou outras propriedades dos artigos.
 
 ## Decisão
 
-A implementação persistente planejada utilizará Chroma local e persistente.
-`EmbeddingService` continuará responsável por gerar embeddings, e a aplicação
-fornecerá ao Chroma os vetores já calculados. A busca deverá utilizar distância
-de cosseno.
+A implementação persistente utiliza Chroma local e persistente.
+`EmbeddingService` continua responsável por gerar embeddings, e a aplicação
+fornece ao Chroma os vetores já calculados. A busca utiliza distância de
+cosseno.
 
-Configuração planejada:
+Configuração:
 
 - coleção: `helpdesklite-knowledge-v1`;
 - diretório local: `data/chroma`;
@@ -31,7 +31,7 @@ Configuração planejada:
 - metadados: título, categoria, palavras-chave e versão;
 - `embedding_model` como metadado quando aplicável.
 
-Mapeamento planejado:
+Mapeamento:
 
 ```text
 Chroma ID
@@ -51,15 +51,22 @@ Metadata
 └── embedding_model, quando aplicável
 ```
 
-Esta decisão não implementa o armazenamento persistente. Ela apenas registra a
-direção arquitetural para etapas futuras.
+Esta decisão foi implementada na Semana 4. O endpoint
+`POST /internal/knowledge/search` consulta o backend Chroma carregado no
+lifespan da aplicação, e `POST /internal/knowledge/search/batch` executa buscas
+em lote. Filtros por categoria são convertidos internamente para `where`, sem
+expor a sintaxe nativa do Chroma aos clientes HTTP.
+
+`KnowledgeVectorIndex` foi preservado como implementação de referência em
+memória para testes, avaliação e fallback explícito de desenvolvimento.
 
 ## Consequências positivas
 
 - embeddings reutilizáveis;
 - redução de chamadas repetidas;
 - persistência local;
-- suporte futuro a filtros;
+- suporte a filtros por categoria;
+- suporte a consultas em lote;
 - separação entre geração e armazenamento;
 - possibilidade de trocar o adaptador futuramente.
 
@@ -104,5 +111,5 @@ Ainda não serão implementados:
 - pipeline RAG;
 - autenticação do banco;
 - migração automática de coleções;
-- filtros por metadados;
-- persistência nesta tarefa.
+- filtros arbitrários por metadados;
+- filtros compostos expostos via HTTP.

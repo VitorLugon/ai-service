@@ -751,3 +751,51 @@ python -m scripts.index_knowledge_base
 O smoke test em memória `scripts.search_knowledge_base_smoke_test` continua
 disponível para validações manuais separadas. Ele não representa o fluxo atual
 do endpoint HTTP.
+
+## Estado Ao Final Da Semana 4
+
+Chroma é o backend real da API de busca semântica. Os artigos são indexados
+previamente por script, e a aplicação reutiliza o backend carregado no lifespan.
+Durante requests, apenas as queries geram embeddings sob demanda.
+
+`KnowledgeVectorIndex` permanece como implementação de referência em memória
+para testes, avaliação determinística e fallback explícito de desenvolvimento.
+A avaliação de recuperação continua separada da camada HTTP e pode usar tanto o
+índice em memória quanto um backend compatível com `KnowledgeSearchBackend`.
+
+Indexação:
+
+```text
+KnowledgeArticle[]
+        |
+        v
+EmbeddingService
+        |
+        v
+Chroma upsert
+```
+
+Consulta:
+
+```text
+HTTP
+        |
+        v
+EmbeddingService
+        |
+        v
+Chroma query
+        |
+        v
+KnowledgeSearchMatch[]
+```
+
+Funcionalidades ativas no fechamento:
+
+- busca individual no Chroma;
+- filtros por categoria;
+- busca em lote;
+- `embedding_function=None`;
+- update/delete por serviço interno;
+- comparação determinística entre memória e Chroma;
+- script de avaliação Chroma sem reindexação de artigos.

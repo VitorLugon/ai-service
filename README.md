@@ -93,6 +93,8 @@ Os resultados e limites da avaliação estão em
 [`docs/evaluation.md`](docs/evaluation.md).
 A revisão técnica da Semana 3 está em
 [`docs/week-3-review.md`](docs/week-3-review.md).
+A revisão técnica da Semana 4 está em
+[`docs/week-4-review.md`](docs/week-4-review.md).
 
 ## Requisitos
 
@@ -402,11 +404,14 @@ Comandos úteis:
 python -m scripts.inspect_knowledge_base
 python -m scripts.search_knowledge_base_smoke_test
 python -m scripts.evaluate_knowledge_retrieval
+python -m scripts.evaluate_chroma_retrieval
 ```
 
 `scripts.inspect_knowledge_base` executa validações locais. Os scripts
-`search_knowledge_base_smoke_test` e `evaluate_knowledge_retrieval` usam a API
-real da OpenAI e podem consumir créditos.
+`search_knowledge_base_smoke_test`, `evaluate_knowledge_retrieval` e
+`evaluate_chroma_retrieval` usam a API real da OpenAI e podem consumir créditos.
+Na avaliação Chroma, os artigos já precisam estar indexados; somente as
+consultas geram novos embeddings.
 
 As métricas de avaliação da recuperação são:
 
@@ -551,6 +556,15 @@ python -m scripts.evaluate_knowledge_retrieval
 Esse comando usa a API real da OpenAI e pode consumir créditos. Ele não persiste
 embeddings, não chama o endpoint HTTP e não gera resposta RAG.
 
+Para avaliar a recuperação usando a coleção Chroma já indexada:
+
+```powershell
+python -m scripts.evaluate_chroma_retrieval
+```
+
+Esse comando também usa a API real da OpenAI, mas gera embeddings somente para
+as consultas do dataset. Ele não reindexa artigos.
+
 ## Semana 4 — Armazenamento vetorial
 
 A busca semântica usa armazenamento vetorial persistente local no endpoint
@@ -689,6 +703,15 @@ python -m scripts.query_chroma_knowledge_batch `
 Esse script usa a API real da OpenAI para gerar embeddings das queries em lote.
 Ele não imprime embeddings, documentos completos ou segredos.
 
+Para avaliar a recuperação no backend persistente:
+
+```powershell
+python -m scripts.evaluate_chroma_retrieval
+```
+
+Esse comando exige a coleção com os artigos previamente indexados. Ele calcula
+Hit Rate@k, Recall@k e MRR usando o Chroma como backend de recuperação.
+
 ### Consulta direta no Chroma
 
 A coleção persistente pode ser consultada diretamente com embeddings externos.
@@ -727,11 +750,14 @@ Nesta etapa:
 - o endpoint HTTP usa o backend Chroma inicializado no lifespan da aplicação;
 - filtros por categoria são convertidos internamente para `where`;
 - consultas em lote usam uma chamada de embeddings e uma chamada ao Chroma;
+- a avaliação Chroma reutiliza o evaluator de recuperação;
 - atualização e remoção por ID existem como serviço interno;
 - `data/chroma` é ignorado pelo Git;
 - embeddings reais só são persistidos quando o script de indexação é executado;
 - a busca em memória continua disponível para avaliação, testes e fallback
   explícito de desenvolvimento.
+- o fechamento técnico da Semana 4 está documentado em
+  `docs/week-4-review.md`.
 
 ## Classificação de chamados
 

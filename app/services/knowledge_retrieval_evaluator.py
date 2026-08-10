@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from app.core.exceptions import AIProviderInvalidResponseError
-from app.knowledge.vector_index import KnowledgeVectorIndex
+from app.knowledge.search_backend import KnowledgeSearchBackend
 from app.schemas.retrieval_evaluation import (
     RetrievalCaseResult,
     RetrievalEvaluationCase,
@@ -17,7 +17,7 @@ class KnowledgeRetrievalEvaluator:
     def __init__(
         self,
         embedding_provider: EmbeddingProvider,
-        index: KnowledgeVectorIndex,
+        index: KnowledgeSearchBackend,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._index = index

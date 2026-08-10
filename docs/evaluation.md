@@ -247,8 +247,50 @@ na representação de embedding.
 - não há comparação entre modelos;
 - não há dados reais de produção;
 - não há NDCG ou MAP;
-- não há persistência de embeddings;
-- não há banco vetorial;
 - não há geração RAG;
 - métricas reais dependem do modelo de embeddings configurado no momento da
   execução.
+
+## Avaliação pós-migração para Chroma
+
+### Status
+
+A avaliação real sobre Chroma foi executada em 2026-08-10 com a coleção
+persistente `helpdesklite-knowledge-v1` contendo os 12 artigos indexados.
+
+Comando:
+
+```powershell
+python -m scripts.evaluate_chroma_retrieval
+```
+
+Esse script:
+
+- abre a coleção Chroma existente;
+- valida metadata e contagem;
+- carrega o dataset `evaluation/knowledge_queries.json`;
+- gera embeddings das 18 consultas em lote;
+- executa recuperação no backend Chroma;
+- reutiliza `KnowledgeRetrievalEvaluator`;
+- não reindexa artigos;
+- não imprime embeddings nem segredos.
+
+### Comparação
+
+| Métrica | Memória | Chroma | Diferença |
+|---|---:|---:|---:|
+| Hit Rate@1 | 1,0000 | 1,0000 | 0,0000 |
+| Hit Rate@3 | 1,0000 | 1,0000 | 0,0000 |
+| Hit Rate@5 | 1,0000 | 1,0000 | 0,0000 |
+| Recall@1 | 0,8333 | 0,8333 | 0,0000 |
+| Recall@3 | 1,0000 | 1,0000 | 0,0000 |
+| Recall@5 | 1,0000 | 1,0000 | 0,0000 |
+| MRR | 1,0000 | 1,0000 | 0,0000 |
+
+### Interpretação
+
+Os testes determinísticos com vetores sintéticos mostram equivalência entre o
+índice em memória e o backend Chroma para ranking, top-k, scores dentro de
+tolerância e métricas agregadas. A avaliação real com embeddings da OpenAI
+confirmou o mesmo resultado agregado do baseline em memória para 18 consultas e
+12 artigos indexados.
