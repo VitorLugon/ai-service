@@ -35,6 +35,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
+RAG_CONTEXT_MAX_CHARACTERS=12000
 ```
 
 `OPENAI_PROMPT_STRATEGY` aceita `zero_shot`, `one_shot` e `few_shot`. O baseline
@@ -306,8 +307,66 @@ Filtros são representados por `KnowledgeSearchFilter`, em
 
 Esta etapa não inclui:
 
-- pipeline RAG;
 - geração de resposta baseada em documentos.
+
+## Pipeline RAG
+
+A Semana 5 inicia o pipeline RAG pela camada de Augmentation/context assembly.
+Essa camada fica entre a recuperação semântica já existente e a futura geração
+com LLM. Ela não chama OpenAI, não acessa Chroma, não lê arquivos e não depende
+de FastAPI.
+
+Retrieval:
+
+```text
+query
+ |
+ v
+EmbeddingService
+ |
+ v
+Chroma
+ |
+ v
+KnowledgeSearchMatch[]
+```
+
+Augmentation:
+
+```text
+KnowledgeSearchMatch[]
+ |
+ v
+RagContextBuilder
+ |
+ v
+RagContext
+```
+
+Generation:
+
+```text
+RagContext
+ |
+ v
+futura camada generativa
+```
+
+Retrieval é responsável por embeddings da query, filtros, busca e ranking.
+Augmentation é responsável por preservar a ordem recebida, transformar os
+matches em sources, montar um texto determinístico e respeitar o orçamento de
+contexto configurado por `RAG_CONTEXT_MAX_CHARACTERS`.
+
+`RagSource` preserva a evidência original completa: ID do artigo, título,
+categoria, score, rank e conteúdo completo. `RagContext.text` contém somente o
+texto formatado que será enviado à futura camada generativa e nunca excede o
+orçamento configurado. Quando a primeira fonte sozinha excede o limite, apenas
+o texto é truncado com marcador explícito; `RagSource.content` continua com o
+conteúdo completo para auditoria, debugging e citações futuras.
+
+O texto recuperado continua sendo tratado como conteúdo dentro da seção
+`content:`. Defesas completas contra prompt injection pertencem ao futuro
+prompt de geração e ainda estão fora do escopo.
 
 ## Estado Atual Da Recuperação Semântica
 

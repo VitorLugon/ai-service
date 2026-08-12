@@ -36,6 +36,11 @@ class Settings(BaseSettings):
         default=1,
         gt=0,
     )
+    rag_context_max_characters: int = Field(
+        default=12_000,
+        ge=1_000,
+        le=100_000,
+    )
 
 
 @lru_cache

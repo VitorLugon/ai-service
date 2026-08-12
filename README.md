@@ -46,6 +46,8 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - ordenação determinística em caso de empate;
 - serviço de busca desacoplado do cliente da OpenAI;
 - avaliação da recuperação semântica com Hit Rate@k, Recall@k e MRR;
+- schemas RAG para contexto e fontes;
+- montagem determinística de contexto RAG sem chamada generativa;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -79,6 +81,7 @@ ai-service/
 │   ├── core/              # Configurações, segurança e exceções
 │   ├── knowledge/         # Carregamento, texto, Chroma e índices de busca
 │   ├── prompts/           # Estratégias e instruções
+│   ├── rag/               # Montagem de contexto RAG
 │   ├── schemas/           # Contratos Pydantic
 │   ├── services/          # Regras e integrações
 │   └── main.py            # Criação da aplicação
@@ -147,6 +150,8 @@ OPENAI_PROMPT_STRATEGY=one_shot
 CHROMA_PERSIST_DIRECTORY=data/chroma
 CHROMA_COLLECTION_NAME=helpdesklite-knowledge-v1
 CHROMA_SCHEMA_VERSION=1
+
+RAG_CONTEXT_MAX_CHARACTERS=12000
 ```
 
 ### Chave interna
@@ -564,6 +569,31 @@ python -m scripts.evaluate_chroma_retrieval
 
 Esse comando também usa a API real da OpenAI, mas gera embeddings somente para
 as consultas do dataset. Ele não reindexa artigos.
+
+## Semana 5 — Retrieval Augmented Generation
+
+A Semana 4 concluiu a recuperação semântica persistente com Chroma. A Semana 5
+inicia o pipeline RAG mantendo Retrieval, Augmentation e Generation separados.
+
+O Dia 1 adiciona `RagContextBuilder`, responsável por transformar
+`KnowledgeSearchMatch[]` em `RagContext`. O builder preserva a ordem recebida do
+retrieval, monta seções `[SOURCE n]`, inclui ID, título, categoria e conteúdo, e
+respeita o orçamento configurado por `RAG_CONTEXT_MAX_CHARACTERS`.
+
+`RagSource` preserva o conteúdo original completo do artigo para auditoria,
+debugging e citações futuras. `RagContext.text` contém somente o texto que cabe
+no orçamento. Se a primeira fonte for maior que o limite, o texto é truncado com
+marcador explícito; fontes posteriores que não couberem são omitidas por
+inteiro.
+
+Esta etapa não chama LLM generativo, não cria `GenerationService`, não expõe
+endpoint RAG, não adiciona streaming e não adiciona LangChain ao projeto.
+
+Para inspecionar a montagem de contexto com dados sintéticos:
+
+```powershell
+python -m scripts.inspect_rag_context
+```
 
 ## Semana 4 — Armazenamento vetorial
 
