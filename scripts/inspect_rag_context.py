@@ -1,5 +1,7 @@
+from app.rag.chunker import RagTextChunker
 from app.rag.context_builder import RagContextBuilder
 from app.schemas.knowledge import KnowledgeArticle, KnowledgeSearchMatch
+from app.schemas.rag import RankedRagChunk
 from app.schemas.tickets import TicketCategory
 
 
@@ -53,11 +55,58 @@ def main() -> None:
         matches,
     )
 
+    chunker = RagTextChunker(
+        chunk_size=500,
+        overlap=80,
+    )
+    chunks = chunker.chunk_article(
+        KnowledgeArticle(
+            id="technical-runbook",
+            title="Investigar falha técnica",
+            content=(
+                "Primeiro parágrafo com contexto operacional da falha técnica. "
+                "Ele descreve sintomas observáveis e sinais de impacto. "
+                "Também registra como separar evidências de hipóteses. " * 4 + "\n\n"
+                "Segundo parágrafo com etapas de verificação e coleta de logs. "
+                "Ele deve permanecer rastreável até o artigo original. "
+                "Cada etapa precisa ser validada antes da próxima ação. " * 4 + "\n\n"
+                "Terceiro parágrafo com critérios de encerramento do diagnóstico. "
+                "O suporte deve registrar a causa provável e os próximos passos."
+            ),
+            category=TicketCategory.TECHNICAL_ERROR,
+            keywords=[
+                "erro",
+                "logs",
+            ],
+        ),
+    )
+    chunk_context = RagContextBuilder(
+        max_characters=1_000,
+    ).build_from_chunks(
+        [
+            RankedRagChunk(
+                chunk=chunk,
+                score=0.8 - (chunk.chunk_index * 0.1),
+                rank=chunk.chunk_index + 1,
+            )
+            for chunk in chunks
+        ],
+    )
+
     print(f"source_count: {context.source_count}")
     print(f"characters: {len(context.text)}")
     print("source_ids: " + ", ".join(source.article_id for source in context.sources))
     print("")
     print(context.text)
+    print("")
+    print(f"chunks_available: {len(chunks)}")
+    print(f"chunk_context_characters: {len(chunk_context.text)}")
+    print(
+        "chunk_source_ids: "
+        + ", ".join(
+            source.chunk_id or source.article_id for source in chunk_context.sources
+        )
+    )
 
 
 if __name__ == "__main__":

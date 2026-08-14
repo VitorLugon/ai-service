@@ -36,6 +36,8 @@ OPENAI_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
 RAG_CONTEXT_MAX_CHARACTERS=12000
+RAG_CHUNK_SIZE_CHARACTERS=2000
+RAG_CHUNK_OVERLAP_CHARACTERS=200
 ```
 
 `OPENAI_PROMPT_STRATEGY` aceita `zero_shot`, `one_shot` e `few_shot`. O baseline
@@ -367,6 +369,56 @@ conteúdo completo para auditoria, debugging e citações futuras.
 O texto recuperado continua sendo tratado como conteúdo dentro da seção
 `content:`. Defesas completas contra prompt injection pertencem ao futuro
 prompt de geração e ainda estão fora do escopo.
+
+## Chunking Do Contexto RAG
+
+O Dia 2 da Semana 5 adiciona preparação determinística de chunks para a camada
+de Augmentation. A arquitetura atual continua indexando documentos inteiros no
+Chroma, mas o projeto já possui a estrutura para dividir artigos em trechos
+rastreáveis antes da seleção de contexto.
+
+Fluxo futuro:
+
+```text
+KnowledgeArticle
+      |
+      v
+RagTextChunker
+      |
+      v
+RagChunk[]
+      |
+      v
+ranking / selection
+      |
+      v
+RagContextBuilder
+      |
+      v
+RagContext
+```
+
+`KnowledgeArticle` é o documento de origem. `RagChunk` é um trecho derivado de
+um artigo e preserva `article_id`, título, categoria, `chunk_index`, `chunk_id`
+determinístico e conteúdo. `RagSource` é a evidência selecionada para o
+contexto final; quando nasce de chunk, também preserva `chunk_index` e
+`chunk_id`.
+
+O `RagTextChunker` é síncrono e puro. Ele normaliza quebras de linha de forma
+conservadora, prefere separar por parágrafos, depois por quebras de linha,
+depois por espaços e usa corte por caracteres apenas como fallback. O tamanho
+do chunk é configurado por `RAG_CHUNK_SIZE_CHARACTERS`, e o overlap por
+`RAG_CHUNK_OVERLAP_CHARACTERS`. A configuração rejeita `overlap` maior ou igual
+ao tamanho do chunk.
+
+O orçamento final de contexto continua sendo `RAG_CONTEXT_MAX_CHARACTERS`. O
+builder preserva o ranking recebido, adiciona chunks inteiros enquanto couberem,
+ignora duplicatas exatas de `chunk_id` e só trunca quando a primeira evidência
+sozinha ultrapassa o orçamento.
+
+Ainda não houve reindexação da coleção Chroma para chunks. Essa migração exige
+decisão explícita, nova estratégia de indexação, revisão de schema e nova
+avaliação de retrieval.
 
 ## Estado Atual Da Recuperação Semântica
 

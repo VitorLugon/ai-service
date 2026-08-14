@@ -152,6 +152,8 @@ CHROMA_COLLECTION_NAME=helpdesklite-knowledge-v1
 CHROMA_SCHEMA_VERSION=1
 
 RAG_CONTEXT_MAX_CHARACTERS=12000
+RAG_CHUNK_SIZE_CHARACTERS=2000
+RAG_CHUNK_OVERLAP_CHARACTERS=200
 ```
 
 ### Chave interna
@@ -593,6 +595,32 @@ Para inspecionar a montagem de contexto com dados sintéticos:
 
 ```powershell
 python -m scripts.inspect_rag_context
+```
+
+### Chunking
+
+Documentos longos podem ser divididos em chunks antes da futura geração RAG.
+`RagTextChunker` cria trechos determinísticos, preserva origem do artigo e usa
+tamanho e overlap configuráveis:
+
+```env
+RAG_CHUNK_SIZE_CHARACTERS=2000
+RAG_CHUNK_OVERLAP_CHARACTERS=200
+```
+
+A separação prefere parágrafos, depois quebras de linha, depois espaços e usa
+corte por caracteres apenas como fallback. Cada chunk mantém `article_id`,
+título, categoria, `chunk_index` e `chunk_id` determinístico no formato
+`<article-id>#chunk-000`.
+
+A implementação não depende de LangChain. A coleção Chroma ainda não foi
+migrada para chunks; o retrieval real continua usando os documentos inteiros
+conforme a arquitetura existente.
+
+Para inspecionar chunks com dados sintéticos:
+
+```powershell
+python -m scripts.inspect_rag_chunks
 ```
 
 ## Semana 4 — Armazenamento vetorial

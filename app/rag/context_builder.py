@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from app.schemas.knowledge import KnowledgeSearchMatch
-from app.schemas.rag import RagContext, RagSource
+from app.schemas.rag import RagContext, RagSource, RankedRagChunk
 
 MIN_RAG_CONTEXT_CHARACTERS = 1_000
 MAX_RAG_CONTEXT_CHARACTERS = 100_000
@@ -92,6 +92,82 @@ class RagContextBuilder:
             source_count=len(included_sources),
         )
 
+    def build_from_chunks(
+        self,
+        ranked_chunks: Sequence[RankedRagChunk],
+    ) -> RagContext:
+        """Constrói contexto a partir de chunks já ranqueados."""
+
+        if not ranked_chunks:
+            return RagContext(
+                text="",
+                sources=[],
+                source_count=0,
+            )
+
+        included_sources: list[RagSource] = []
+        text_parts: list[str] = []
+        seen_chunk_ids: set[str] = set()
+
+        for ranked_chunk in ranked_chunks:
+            chunk_id = ranked_chunk.chunk.chunk_id
+
+            if chunk_id is None:
+                raise ValueError(
+                    "chunk_id deve estar preenchido no chunk ranqueado.",
+                )
+
+            if chunk_id in seen_chunk_ids:
+                continue
+
+            seen_chunk_ids.add(
+                chunk_id,
+            )
+            source = _source_from_ranked_chunk(
+                ranked_chunk,
+            )
+            source_text = _format_source(
+                source,
+            )
+            candidate_text = _join_source_texts(
+                [
+                    *text_parts,
+                    source_text,
+                ],
+            )
+
+            if len(candidate_text) <= self._max_characters:
+                included_sources.append(
+                    source,
+                )
+                text_parts.append(
+                    source_text,
+                )
+                continue
+
+            if not included_sources:
+                included_sources.append(
+                    source,
+                )
+                text_parts.append(
+                    _truncate_first_source(
+                        source,
+                        max_characters=self._max_characters,
+                    ),
+                )
+
+            break
+
+        text = _join_source_texts(
+            text_parts,
+        )
+
+        return RagContext(
+            text=text,
+            sources=included_sources,
+            source_count=len(included_sources),
+        )
+
 
 def _source_from_match(
     match: KnowledgeSearchMatch,
@@ -110,12 +186,30 @@ def _source_from_match(
     )
 
 
+def _source_from_ranked_chunk(
+    ranked_chunk: RankedRagChunk,
+) -> RagSource:
+    chunk = ranked_chunk.chunk
+
+    return RagSource(
+        article_id=chunk.article_id,
+        title=chunk.title,
+        category=chunk.category,
+        score=ranked_chunk.score,
+        rank=ranked_chunk.rank,
+        content=chunk.content,
+        chunk_index=chunk.chunk_index,
+        chunk_id=chunk.chunk_id,
+    )
+
+
 def _format_source(
     source: RagSource,
 ) -> str:
     return (
         f"[SOURCE {source.rank}]\n"
-        f"id: {source.article_id}\n"
+        f"{_source_id_label(source)}: {source.article_id}\n"
+        f"{_chunk_id_line(source)}"
         f"title: {source.title}\n"
         f"category: {source.category.value}\n"
         "content:\n"
@@ -128,11 +222,30 @@ def _format_source_header(
 ) -> str:
     return (
         f"[SOURCE {source.rank}]\n"
-        f"id: {source.article_id}\n"
+        f"{_source_id_label(source)}: {source.article_id}\n"
+        f"{_chunk_id_line(source)}"
         f"title: {source.title}\n"
         f"category: {source.category.value}\n"
         "content:\n"
     )
+
+
+def _source_id_label(
+    source: RagSource,
+) -> str:
+    if source.chunk_id is None:
+        return "id"
+
+    return "article_id"
+
+
+def _chunk_id_line(
+    source: RagSource,
+) -> str:
+    if source.chunk_id is None:
+        return ""
+
+    return f"chunk_id: {source.chunk_id}\n"
 
 
 def _truncate_first_source(

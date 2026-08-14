@@ -2,7 +2,7 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.prompts.ticket_classification import PromptStrategy
@@ -41,6 +41,25 @@ class Settings(BaseSettings):
         ge=1_000,
         le=100_000,
     )
+    rag_chunk_size_characters: int = Field(
+        default=2_000,
+        ge=500,
+        le=10_000,
+    )
+    rag_chunk_overlap_characters: int = Field(
+        default=200,
+        ge=0,
+    )
+
+    @model_validator(mode="after")
+    def validate_rag_chunk_overlap(self) -> "Settings":
+        if self.rag_chunk_overlap_characters >= self.rag_chunk_size_characters:
+            raise ValueError(
+                "rag_chunk_overlap_characters deve ser menor que "
+                "rag_chunk_size_characters.",
+            )
+
+        return self
 
 
 @lru_cache
