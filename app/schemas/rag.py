@@ -201,6 +201,55 @@ class RagGenerationResult(BaseModel):
     model: RagText
 
 
+class RagAnswerSource(BaseModel):
+    """Fonte controlada pela aplicação retornada com a resposta RAG."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    source_id: RagText
+    article_id: RagText
+    chunk_id: RagText | None = None
+    title: RagText
+    category: TicketCategory
+    rank: int = Field(
+        ge=1,
+    )
+
+
+class RagAnswer(BaseModel):
+    """Resposta RAG final com fontes fornecidas à geração."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    answer: RagText
+    sources: list[RagAnswerSource]
+    source_count: int = Field(
+        ge=0,
+    )
+
+    @model_validator(mode="after")
+    def validate_sources(self) -> "RagAnswer":
+        if self.source_count != len(self.sources):
+            raise ValueError(
+                "source_count deve corresponder à quantidade de sources.",
+            )
+
+        source_ids = [source.source_id for source in self.sources]
+
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError(
+                "sources não podem conter source_id duplicado.",
+            )
+
+        return self
+
+
 def build_rag_chunk_id(
     article_id: str,
     chunk_index: int | None,

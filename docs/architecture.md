@@ -369,6 +369,20 @@ OpenAI Responses API
 RagGenerationResult
 ```
 
+Answer Composition:
+
+```text
+RagGenerationResult
+        +
+RagContext.sources
+        |
+        v
+RagAnswerComposer
+        |
+        v
+RagAnswer
+```
+
 Retrieval é responsável por embeddings da query, filtros, busca e ranking.
 Augmentation é responsável por preservar a ordem recebida, transformar os
 matches em sources, montar um texto determinístico e respeitar o orçamento de
@@ -385,6 +399,63 @@ O texto recuperado continua sendo tratado como conteúdo dentro da seção
 `content:`. O prompt assembly adiciona instruções estáveis para que a futura
 geração trate fontes como dados não confiáveis. Delimitadores textuais ajudam a
 estrutura, mas não são uma barreira de segurança perfeita.
+
+## Grounded RAG Response
+
+O Dia 5 une o texto gerado pelo modelo às fontes controladas pela aplicação:
+
+```text
+RagContext
+     |
+     +-----------------------+
+     |                       |
+     v                       v
+RagPrompt               RagSource[]
+     |                       |
+     v                       |
+Generation                   |
+     |                       |
+     v                       |
+RagGenerationResult          |
+     |                       |
+     +-----------+-----------+
+                 |
+                 v
+         RagAnswerComposer
+                 |
+                 v
+             RagAnswer
+```
+
+O LLM controla:
+
+- texto de `answer`.
+
+A aplicação controla:
+
+- `sources`;
+- provenance de artigo/chunk;
+- `source_id`;
+- ordem das fontes.
+
+`RagAnswerComposer` é síncrono, puro e determinístico. Ele não acessa OpenAI,
+Chroma, FastAPI, arquivos ou Settings. O componente recebe `RagGenerationResult`
+e `RagContext`, preserva `generation.answer` e monta `RagAnswer.sources` apenas
+a partir de `RagContext.sources`.
+
+`RagAnswerSource` expõe `source_id`, `article_id`, `chunk_id`, `title`,
+`category` e `rank`. O `source_id` usa `chunk_id` quando a evidência veio de um
+chunk; caso contrário usa `article_id`. Scores vetoriais e conteúdo completo
+das fontes não são retornados automaticamente.
+
+Fontes duplicadas são removidas por `source_id`, preservando a primeira
+ocorrência e o rank original do contexto. Dois chunks diferentes do mesmo artigo
+continuam sendo duas fontes distintas. Quando não há evidências, `RagAnswer`
+mantém o texto gerado e retorna `sources=[]` com `source_count=0`.
+
+As fontes retornadas significam evidências fornecidas à geração. Elas ainda não
+representam citações verificadas por claim, e a aplicação não tenta resolver IDs
+ou marcadores como `[SOURCE 999]` presentes no texto gerado pelo modelo.
 
 ## Chunking Do Contexto RAG
 

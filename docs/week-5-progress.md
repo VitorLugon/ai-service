@@ -48,14 +48,29 @@ desacoplados.
 - smoke test isolado;
 - teste integrado Context -> Prompt -> Generation.
 
+## Dia 5
+
+- `RagAnswerSource`;
+- `RagAnswer`;
+- `RagAnswerComposer`;
+- source attribution controlada pela aplicação;
+- source IDs determinísticos por artigo ou chunk;
+- deduplicação por `source_id`;
+- suporte a artigo inteiro e chunk;
+- comportamento explícito sem evidência;
+- teste de source hallucination;
+- teste de fonte removida pelo orçamento;
+- pipeline Context -> Prompt -> Generation -> Answer.
+
 ## Pendências
 
 - decidir reindexação por chunks;
-- fontes/citações;
-- resposta RAG completa;
 - endpoint RAG;
+- avaliação RAG;
+- métricas de groundedness;
+- citation verification;
+- integração end-to-end real;
 - avaliação de geração;
-- integração end-to-end;
 - integração HTTP.
 
 ## Checklist Manual DataCamp

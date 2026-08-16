@@ -44,6 +44,12 @@ OpenAI Responses API
     |
     v
 RagGenerationResult
+    |
+    v
+Answer Composition
+    |
+    v
+RagAnswer
 ```
 
 ## Retrieval
@@ -108,6 +114,12 @@ OpenAI Responses API
    |
    v
 RagGenerationResult
+   |
+   v
+RagAnswerComposer
+   |
+   v
+RagAnswer
 ```
 
 ## Generation
@@ -120,9 +132,26 @@ Responsável por:
 - traduzir erros do provider;
 - retornar `RagGenerationResult`.
 
+Generation não possui autoridade sobre provenance, source IDs ou ordem das
+fontes. O modelo controla apenas o texto de `answer`.
+
+## Answer Composition
+
+Responsável por:
+
+- combinar `RagGenerationResult` com `RagContext.sources`;
+- montar `RagAnswer`;
+- expor somente metadados públicos das fontes;
+- deduplicar fontes por `source_id`;
+- preservar a primeira ocorrência e o rank original;
+- garantir que nenhuma fonte venha de texto arbitrário gerado pelo modelo.
+
+A provenance vem de `RagContext`, que representa as evidências fornecidas à
+geração. O composer não parseia marcadores como `[SOURCE n]`, não resolve IDs
+mencionados pelo modelo e não adiciona fontes fora do contexto.
+
 Ainda são responsabilidades futuras:
 
-- fontes e citações formais;
 - endpoint RAG;
 - streaming;
 - avaliação end-to-end.
@@ -135,7 +164,8 @@ Ainda são responsabilidades futuras:
 - avaliação separada;
 - troca de retriever;
 - troca de modelo;
-- citações futuras.
+- attribution controlada pela aplicação;
+- base para citações verificadas futuras.
 
 ## Consequências Negativas
 
@@ -147,7 +177,6 @@ Ainda são responsabilidades futuras:
 ## Fora Do Escopo
 
 - LangChain;
-- geração;
 - streaming;
 - endpoint RAG;
 - defesa completa contra prompt injection;

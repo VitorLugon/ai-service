@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.rag import (
+    RagAnswer,
+    RagAnswerSource,
     RagChunk,
     RagContext,
     RagGenerationResult,
@@ -532,3 +534,199 @@ def test_rag_generation_result_is_immutable() -> None:
         ValidationError,
     ):
         result.answer = "Outra resposta."
+
+
+def valid_answer_source(**overrides: object) -> RagAnswerSource:
+    data: dict[str, object] = {
+        "source_id": "recover-account-access",
+        "article_id": "recover-account-access",
+        "chunk_id": None,
+        "title": "Recuperar acesso à conta",
+        "category": TicketCategory.ACCESS_AND_AUTHENTICATION,
+        "rank": 1,
+    }
+    data.update(
+        overrides,
+    )
+
+    return RagAnswerSource(
+        **data,
+    )
+
+
+def test_rag_answer_source_accepts_valid_data() -> None:
+    source = valid_answer_source(
+        source_id=" recover-account-access ",
+        article_id=" recover-account-access ",
+        title=" Recuperar acesso à conta ",
+    )
+
+    assert source.source_id == "recover-account-access"
+    assert source.article_id == "recover-account-access"
+    assert source.chunk_id is None
+    assert source.title == "Recuperar acesso à conta"
+    assert source.category is TicketCategory.ACCESS_AND_AUTHENTICATION
+    assert source.rank == 1
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("source_id", "   "),
+        ("article_id", "   "),
+        ("title", "   "),
+    ],
+)
+def test_rag_answer_source_rejects_empty_strings(
+    field_name: str,
+    value: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        valid_answer_source(
+            **{field_name: value},
+        )
+
+
+def test_rag_answer_source_rejects_invalid_rank() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        valid_answer_source(
+            rank=0,
+        )
+
+
+def test_rag_answer_source_rejects_invalid_category() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        valid_answer_source(
+            category="categoria-invalida",
+        )
+
+
+def test_rag_answer_source_rejects_extra_field() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        valid_answer_source(
+            unexpected=True,
+        )
+
+
+def test_rag_answer_source_is_immutable() -> None:
+    source = valid_answer_source()
+
+    with pytest.raises(
+        ValidationError,
+    ):
+        source.rank = 2
+
+
+def test_rag_answer_accepts_valid_data() -> None:
+    source = valid_answer_source()
+    answer = RagAnswer(
+        answer=" Resposta fundamentada na base. ",
+        sources=[
+            source,
+        ],
+        source_count=1,
+    )
+
+    assert answer.answer == "Resposta fundamentada na base."
+    assert answer.sources == [
+        source,
+    ]
+    assert answer.source_count == 1
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "",
+        "   ",
+        "\n\t",
+    ],
+)
+def test_rag_answer_rejects_empty_answer(
+    answer: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagAnswer(
+            answer=answer,
+            sources=[],
+            source_count=0,
+        )
+
+
+def test_rag_answer_rejects_inconsistent_source_count() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagAnswer(
+            answer="Resposta fundamentada na base.",
+            sources=[
+                valid_answer_source(),
+            ],
+            source_count=0,
+        )
+
+
+def test_rag_answer_rejects_duplicate_source_ids() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagAnswer(
+            answer="Resposta fundamentada na base.",
+            sources=[
+                valid_answer_source(
+                    source_id="recover-account-access",
+                    rank=1,
+                ),
+                valid_answer_source(
+                    source_id="recover-account-access",
+                    rank=2,
+                ),
+            ],
+            source_count=2,
+        )
+
+
+def test_rag_answer_accepts_zero_sources() -> None:
+    answer = RagAnswer(
+        answer="Não encontrei informação suficiente.",
+        sources=[],
+        source_count=0,
+    )
+
+    assert answer.sources == []
+    assert answer.source_count == 0
+
+
+def test_rag_answer_rejects_extra_field() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagAnswer(
+            answer="Resposta fundamentada na base.",
+            sources=[],
+            source_count=0,
+            unexpected=True,
+        )
+
+
+def test_rag_answer_is_immutable() -> None:
+    answer = RagAnswer(
+        answer="Resposta fundamentada na base.",
+        sources=[],
+        source_count=0,
+    )
+
+    with pytest.raises(
+        ValidationError,
+    ):
+        answer.source_count = 1

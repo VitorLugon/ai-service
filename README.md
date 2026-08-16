@@ -50,6 +50,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - montagem determinística de contexto RAG sem chamada generativa;
 - contrato explícito de prompt RAG com system e user separados;
 - geração RAG isolada com OpenAI Responses API;
+- resposta RAG fundamentada com fontes controladas pela aplicação;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -706,6 +707,44 @@ python -m scripts.rag_generation_smoke_test
 Esse comando usa a OpenAI real e pode consumir créditos. Ele usa contexto
 sintético, não executa retrieval, não acessa Chroma e não imprime segredos.
 
+### Respostas fundamentadas
+
+O Dia 5 adiciona o contrato final de resposta RAG, composto por:
+
+```text
+RagGenerationResult
+        +
+RagContext.sources
+        |
+        v
+RagAnswer
+```
+
+`RagAnswer` retorna `answer`, `sources` e `source_count`. O texto da resposta
+vem do modelo generativo. As fontes vêm exclusivamente de `RagContext.sources`,
+ou seja, das evidências que a aplicação forneceu para a geração.
+
+Cada fonte pública é representada por `RagAnswerSource`, com `source_id`,
+`article_id`, `chunk_id`, `title`, `category` e `rank`. Quando a evidência vem
+de um chunk, `source_id` é o `chunk_id`; quando vem de um artigo inteiro,
+`source_id` é o `article_id`. Esses IDs são determinísticos e não são extraídos
+do texto produzido pelo modelo.
+
+O composer preserva a ordem das fontes, deduplica por `source_id` mantendo a
+primeira ocorrência, não expõe score vetorial e não retorna o conteúdo completo
+das fontes automaticamente. Se o contexto estiver vazio, a resposta gerada é
+preservada e `sources=[]`, `source_count=0`.
+
+`sources` significa evidências fornecidas à geração. Ainda não significa
+citações verificadas por claim, nem prova automática de que cada afirmação foi
+sustentada por uma fonte específica.
+
+Para inspecionar a composição sem OpenAI, Chroma ou segredos:
+
+```powershell
+python -m scripts.inspect_rag_answer
+```
+
 ## Semana 4 — Armazenamento vetorial
 
 A busca semântica usa armazenamento vetorial persistente local no endpoint
@@ -1304,6 +1343,9 @@ Os testes verificam:
 - backend Chroma persistente com coleção temporária;
 - endpoint de busca usando Chroma sem acessar OpenAI;
 - garantia de que a request de busca embute somente a query.
+- schemas e composição de resposta RAG fundamentada;
+- garantia de que fontes da resposta RAG vêm do contexto, não do texto do
+  modelo.
 
 Os testes:
 
@@ -1364,6 +1406,7 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 ## Próximas funcionalidades
 
 - geração de resposta RAG com artigos recuperados;
+- endpoint HTTP para resposta RAG completa;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
 - métricas e observabilidade;
