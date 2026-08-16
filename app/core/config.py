@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5-mini"
+    openai_rag_model: str = "gpt-5-mini"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_cost_per_million_tokens_usd: Decimal = Decimal("0.02")
     openai_prompt_strategy: PromptStrategy = PromptStrategy.ONE_SHOT
@@ -54,6 +55,11 @@ class Settings(BaseSettings):
         default=2_000,
         ge=100,
         le=10_000,
+    )
+    rag_max_output_tokens: int = Field(
+        default=800,
+        ge=100,
+        le=4_000,
     )
 
     @model_validator(mode="after")

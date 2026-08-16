@@ -33,12 +33,14 @@ As variáveis relevantes para classificação são:
 ```env
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
+OPENAI_RAG_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_PROMPT_STRATEGY=one_shot
 RAG_CONTEXT_MAX_CHARACTERS=12000
 RAG_CHUNK_SIZE_CHARACTERS=2000
 RAG_CHUNK_OVERLAP_CHARACTERS=200
 RAG_QUESTION_MAX_CHARACTERS=2000
+RAG_MAX_OUTPUT_TOKENS=800
 ```
 
 `OPENAI_PROMPT_STRATEGY` aceita `zero_shot`, `one_shot` e `few_shot`. O baseline
@@ -358,7 +360,13 @@ Generation:
 RagPrompt
  |
  v
-futura camada generativa
+RagGenerationService
+ |
+ v
+OpenAI Responses API
+ |
+ v
+RagGenerationResult
 ```
 
 Retrieval é responsável por embeddings da query, filtros, busca e ranking.
@@ -488,6 +496,68 @@ truncagem.
 O builder usa `RagContext.text`, não o conteúdo completo de `RagSource`,
 preservando a seleção, o truncamento e o orçamento definidos anteriormente pelo
 context builder. Scores permanecem fora do texto enviado ao futuro modelo.
+
+## Generation
+
+O Dia 4 da Semana 5 adiciona a primeira camada concreta de geração RAG:
+
+```text
+RagPrompt
+   |
+   v
+RagGenerationService
+   |
+   v
+OpenAI Responses API
+   |
+   v
+RagGenerationResult
+```
+
+O serviço recebe um prompt pronto, chama `client.responses.create()`, envia
+`system_instructions` como `instructions`, envia `user_message` como `input`,
+limita a saída por `RAG_MAX_OUTPUT_TOKENS`, usa `store=False` e extrai a
+resposta por `response.output_text`.
+
+`RagGenerationService` é responsável por:
+
+- receber prompt pronto;
+- chamar provider;
+- validar resposta textual;
+- rejeitar resposta vazia;
+- rejeitar status incompleto ou não concluído quando informado pelo SDK;
+- traduzir erros do provider para exceções internas;
+- retornar `RagGenerationResult`.
+
+Ele não:
+
+- recupera artigos;
+- monta contexto;
+- decide ranking;
+- acessa Chroma;
+- constrói prompt;
+- usa tools;
+- usa `previous_response_id`;
+- persiste resposta.
+
+O fluxo conceitual atual é:
+
+```text
+Retrieval
+    |
+    v
+Augmentation
+    |
+    v
+Prompt Assembly
+    |
+    v
+Generation
+```
+
+O modelo RAG é configurado por `OPENAI_RAG_MODEL`, separado do modelo de
+classificação para permitir evolução independente. A camada ainda não expõe
+endpoint HTTP, não implementa streaming e não retorna citações formais.
 
 ## Estado Atual Da Recuperação Semântica
 

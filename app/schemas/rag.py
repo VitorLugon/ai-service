@@ -189,6 +189,18 @@ class RagPrompt(BaseModel):
     user_message: RagText
 
 
+class RagGenerationResult(BaseModel):
+    """Resultado textual validado da etapa generativa RAG."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    answer: RagText
+    model: RagText
+
+
 def build_rag_chunk_id(
     article_id: str,
     chunk_index: int | None,

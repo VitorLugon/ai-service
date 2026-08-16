@@ -37,16 +37,25 @@ desacoplados.
 - proteção estrutural contra prompt injection;
 - contrato pronto para Generation.
 
+## Dia 4
+
+- `RagGenerationResult`;
+- `RagGenerationService`;
+- Responses API;
+- tradução de erros;
+- geração fundamentada;
+- cenário sem evidência;
+- smoke test isolado;
+- teste integrado Context -> Prompt -> Generation.
+
 ## Pendências
 
 - decidir reindexação por chunks;
-- `GenerationService`;
-- integração com OpenAI Responses API;
-- resposta estruturada;
 - fontes/citações;
+- resposta RAG completa;
 - endpoint RAG;
-- avaliação end-to-end;
-- avaliação RAG;
+- avaliação de geração;
+- integração end-to-end;
 - integração HTTP.
 
 ## Checklist Manual DataCamp

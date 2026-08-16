@@ -49,6 +49,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - schemas RAG para contexto e fontes;
 - montagem determinística de contexto RAG sem chamada generativa;
 - contrato explícito de prompt RAG com system e user separados;
+- geração RAG isolada com OpenAI Responses API;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -144,6 +145,7 @@ INTERNAL_API_KEY=sua-chave-interna
 
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
+OPENAI_RAG_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD=0.02
 OPENAI_PROMPT_STRATEGY=one_shot
@@ -156,6 +158,7 @@ RAG_CONTEXT_MAX_CHARACTERS=12000
 RAG_CHUNK_SIZE_CHARACTERS=2000
 RAG_CHUNK_OVERLAP_CHARACTERS=200
 RAG_QUESTION_MAX_CHARACTERS=2000
+RAG_MAX_OUTPUT_TOKENS=800
 ```
 
 ### Chave interna
@@ -179,12 +182,14 @@ A variável `OPENAI_MODEL` determina o modelo utilizado:
 ```env
 OPENAI_API_KEY=sua-chave-da-openai
 OPENAI_MODEL=gpt-5-mini
+OPENAI_RAG_MODEL=gpt-5-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD=0.02
 OPENAI_PROMPT_STRATEGY=one_shot
 ```
 
 O modelo pode ser alterado sem modificar o código-fonte.
+`OPENAI_RAG_MODEL` define o modelo generativo usado pela camada RAG.
 `OPENAI_EMBEDDING_MODEL` define o modelo utilizado para gerar embeddings.
 `OPENAI_EMBEDDING_COST_PER_MILLION_TOKENS_USD` define uma referência
 configurável para estimar custo antes de chamadas reais de embeddings.
@@ -665,6 +670,41 @@ Para inspecionar o contrato com dados sintéticos:
 ```powershell
 python -m scripts.inspect_rag_prompt
 ```
+
+### Geração RAG
+
+O projeto utiliza `RagGenerationService` para transformar `RagPrompt` em uma
+resposta generativa estruturada como `RagGenerationResult`.
+
+O serviço:
+
+- utiliza OpenAI Responses API;
+- recebe system instructions e user message separadamente;
+- extrai texto por `response.output_text`;
+- valida resposta vazia e status incompleto;
+- traduz erros do provider para exceções internas;
+- não realiza retrieval;
+- não acessa Chroma;
+- não constrói prompt;
+- não usa tools;
+- não usa `previous_response_id`;
+- não persiste respostas.
+
+Configuração:
+
+```env
+OPENAI_RAG_MODEL=gpt-5-mini
+RAG_MAX_OUTPUT_TOKENS=800
+```
+
+Para executar um smoke test real e isolado de Generation:
+
+```powershell
+python -m scripts.rag_generation_smoke_test
+```
+
+Esse comando usa a OpenAI real e pode consumir créditos. Ele usa contexto
+sintético, não executa retrieval, não acessa Chroma e não imprime segredos.
 
 ## Semana 4 — Armazenamento vetorial
 

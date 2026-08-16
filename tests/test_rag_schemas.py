@@ -3,7 +3,14 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.rag import RagChunk, RagContext, RagPrompt, RagSource, RankedRagChunk
+from app.schemas.rag import (
+    RagChunk,
+    RagContext,
+    RagGenerationResult,
+    RagPrompt,
+    RagSource,
+    RankedRagChunk,
+)
 from app.schemas.tickets import TicketCategory
 
 
@@ -452,3 +459,76 @@ def test_rag_prompt_is_immutable() -> None:
         ValidationError,
     ):
         prompt.user_message = "Outra mensagem."
+
+
+def test_rag_generation_result_accepts_valid_data() -> None:
+    result = RagGenerationResult(
+        answer=" Resposta fundamentada na base. ",
+        model=" gpt-5-mini ",
+    )
+
+    assert result.answer == "Resposta fundamentada na base."
+    assert result.model == "gpt-5-mini"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "",
+        "   ",
+        "\n\t",
+    ],
+)
+def test_rag_generation_result_rejects_empty_answer(
+    answer: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagGenerationResult(
+            answer=answer,
+            model="gpt-5-mini",
+        )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "",
+        "   ",
+        "\n\t",
+    ],
+)
+def test_rag_generation_result_rejects_empty_model(
+    model: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagGenerationResult(
+            answer="Resposta fundamentada na base.",
+            model=model,
+        )
+
+
+def test_rag_generation_result_rejects_extra_field() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagGenerationResult(
+            answer="Resposta fundamentada na base.",
+            model="gpt-5-mini",
+            unexpected=True,
+        )
+
+
+def test_rag_generation_result_is_immutable() -> None:
+    result = RagGenerationResult(
+        answer="Resposta fundamentada na base.",
+        model="gpt-5-mini",
+    )
+
+    with pytest.raises(
+        ValidationError,
+    ):
+        result.answer = "Outra resposta."

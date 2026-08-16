@@ -37,7 +37,13 @@ Augmentation / Prompt Assembly
 RagPrompt
     |
     v
-Generation
+RagGenerationService
+    |
+    v
+OpenAI Responses API
+    |
+    v
+RagGenerationResult
 ```
 
 ## Retrieval
@@ -95,18 +101,31 @@ RagPromptBuilder
 RagPrompt
    |
    v
-Generation [futuro]
+RagGenerationService
+   |
+   v
+OpenAI Responses API
+   |
+   v
+RagGenerationResult
 ```
 
 ## Generation
 
-Futura responsabilidade por:
+Responsável por:
 
-- instruções;
-- uso do contexto;
-- resposta;
-- fontes e citações;
-- comportamento sem evidência.
+- receber `RagPrompt` como única entrada de conteúdo;
+- chamar a OpenAI Responses API;
+- validar resposta textual;
+- traduzir erros do provider;
+- retornar `RagGenerationResult`.
+
+Ainda são responsabilidades futuras:
+
+- fontes e citações formais;
+- endpoint RAG;
+- streaming;
+- avaliação end-to-end.
 
 ## Consequências Positivas
 
