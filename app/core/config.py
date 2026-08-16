@@ -50,6 +50,11 @@ class Settings(BaseSettings):
         default=200,
         ge=0,
     )
+    rag_question_max_characters: int = Field(
+        default=2_000,
+        ge=100,
+        le=10_000,
+    )
 
     @model_validator(mode="after")
     def validate_rag_chunk_overlap(self) -> "Settings":

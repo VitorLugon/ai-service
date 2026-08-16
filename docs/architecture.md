@@ -38,6 +38,7 @@ OPENAI_PROMPT_STRATEGY=one_shot
 RAG_CONTEXT_MAX_CHARACTERS=12000
 RAG_CHUNK_SIZE_CHARACTERS=2000
 RAG_CHUNK_OVERLAP_CHARACTERS=200
+RAG_QUESTION_MAX_CHARACTERS=2000
 ```
 
 `OPENAI_PROMPT_STRATEGY` aceita `zero_shot`, `one_shot` e `few_shot`. O baseline
@@ -343,12 +344,18 @@ RagContextBuilder
  |
  v
 RagContext
+ |
+ v
+RagPromptBuilder
+ |
+ v
+RagPrompt
 ```
 
 Generation:
 
 ```text
-RagContext
+RagPrompt
  |
  v
 futura camada generativa
@@ -367,8 +374,9 @@ o texto é truncado com marcador explícito; `RagSource.content` continua com o
 conteúdo completo para auditoria, debugging e citações futuras.
 
 O texto recuperado continua sendo tratado como conteúdo dentro da seção
-`content:`. Defesas completas contra prompt injection pertencem ao futuro
-prompt de geração e ainda estão fora do escopo.
+`content:`. O prompt assembly adiciona instruções estáveis para que a futura
+geração trate fontes como dados não confiáveis. Delimitadores textuais ajudam a
+estrutura, mas não são uma barreira de segurança perfeita.
 
 ## Chunking Do Contexto RAG
 
@@ -419,6 +427,67 @@ sozinha ultrapassa o orçamento.
 Ainda não houve reindexação da coleção Chroma para chunks. Essa migração exige
 decisão explícita, nova estratégia de indexação, revisão de schema e nova
 avaliação de retrieval.
+
+## Prompt Assembly
+
+O Dia 3 da Semana 5 adiciona um contrato explícito para a futura geração RAG:
+
+```text
+RagContext
+   |
+   v
+RagPromptBuilder
+   |
+   +--> system_instructions
+   |
+   +--> user_message
+   |
+   v
+RagPrompt
+```
+
+`RagPromptBuilder` é síncrono, puro e independente de OpenAI, Chroma, FastAPI,
+arquivos e Settings. O limite da pergunta é recebido por construtor e vem da
+configuração `RAG_QUESTION_MAX_CHARACTERS` quando houver wiring futuro.
+
+### System instructions
+
+Contêm:
+
+- função do assistente;
+- grounding no contexto recuperado;
+- comportamento quando não houver evidência suficiente;
+- tratamento do conteúdo recuperado como dado não confiável.
+
+Não contêm:
+
+- pergunta;
+- documentos;
+- scores;
+- IDs ou metadados dinâmicos de retrieval.
+
+### User message
+
+Contém seções determinísticas:
+
+```text
+=== CONTEXTO ===
+
+...
+
+=== PERGUNTA ===
+
+...
+```
+
+Quando `RagContext.text` está vazio, a seção de contexto recebe uma mensagem
+explícita de que nenhuma fonte relevante foi recuperada. A pergunta recebe
+somente `strip()`; perguntas vazias ou acima do limite são rejeitadas sem
+truncagem.
+
+O builder usa `RagContext.text`, não o conteúdo completo de `RagSource`,
+preservando a seleção, o truncamento e o orçamento definidos anteriormente pelo
+context builder. Scores permanecem fora do texto enviado ao futuro modelo.
 
 ## Estado Atual Da Recuperação Semântica
 

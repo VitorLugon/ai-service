@@ -3,7 +3,7 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.rag import RagChunk, RagContext, RagSource, RankedRagChunk
+from app.schemas.rag import RagChunk, RagContext, RagPrompt, RagSource, RankedRagChunk
 from app.schemas.tickets import TicketCategory
 
 
@@ -379,3 +379,76 @@ def test_ranked_rag_chunk_rejects_extra_field() -> None:
             rank=1,
             unexpected=True,
         )
+
+
+def test_rag_prompt_accepts_valid_data() -> None:
+    prompt = RagPrompt(
+        system_instructions=" Instruções estáveis do sistema. ",
+        user_message=" Mensagem estruturada do usuário. ",
+    )
+
+    assert prompt.system_instructions == "Instruções estáveis do sistema."
+    assert prompt.user_message == "Mensagem estruturada do usuário."
+
+
+@pytest.mark.parametrize(
+    "system_instructions",
+    [
+        "",
+        "   ",
+        "\n\t",
+    ],
+)
+def test_rag_prompt_rejects_empty_system_instructions(
+    system_instructions: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagPrompt(
+            system_instructions=system_instructions,
+            user_message="Mensagem estruturada do usuário.",
+        )
+
+
+@pytest.mark.parametrize(
+    "user_message",
+    [
+        "",
+        "   ",
+        "\n\t",
+    ],
+)
+def test_rag_prompt_rejects_empty_user_message(
+    user_message: str,
+) -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagPrompt(
+            system_instructions="Instruções estáveis do sistema.",
+            user_message=user_message,
+        )
+
+
+def test_rag_prompt_rejects_extra_field() -> None:
+    with pytest.raises(
+        ValidationError,
+    ):
+        RagPrompt(
+            system_instructions="Instruções estáveis do sistema.",
+            user_message="Mensagem estruturada do usuário.",
+            unexpected=True,
+        )
+
+
+def test_rag_prompt_is_immutable() -> None:
+    prompt = RagPrompt(
+        system_instructions="Instruções estáveis do sistema.",
+        user_message="Mensagem estruturada do usuário.",
+    )
+
+    with pytest.raises(
+        ValidationError,
+    ):
+        prompt.user_message = "Outra mensagem."

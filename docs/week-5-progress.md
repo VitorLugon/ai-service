@@ -25,13 +25,27 @@ desacoplados.
 - testes;
 - ADR de chunking.
 
+## Dia 3
+
+- `RagPrompt`;
+- `RagPromptBuilder`;
+- system/user separados;
+- contexto delimitado;
+- pergunta delimitada;
+- limite da pergunta;
+- comportamento sem contexto;
+- proteção estrutural contra prompt injection;
+- contrato pronto para Generation.
+
 ## Pendências
 
 - decidir reindexação por chunks;
-- retrieval prompt;
 - `GenerationService`;
+- integração com OpenAI Responses API;
+- resposta estruturada;
 - fontes/citações;
-- comportamento sem evidência;
+- endpoint RAG;
+- avaliação end-to-end;
 - avaliação RAG;
 - integração HTTP.
 
@@ -48,3 +62,6 @@ Capítulo 1 — Building RAG Applications with LangChain:
 - Exploring text splitting;
 - Embedding and storing chunks;
 - Creating a retriever / retrieval preparation.
+- Retrieval prompt;
+- Combining documents/context with the model;
+- Retrieval chain.

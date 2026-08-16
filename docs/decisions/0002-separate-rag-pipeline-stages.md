@@ -25,10 +25,16 @@ Retrieval
 KnowledgeSearchMatch[]
     |
     v
-Augmentation / RagContextBuilder
+Augmentation / Context Assembly
     |
     v
 RagContext
+    |
+    v
+Augmentation / Prompt Assembly
+    |
+    v
+RagPrompt
     |
     v
 Generation
@@ -51,12 +57,46 @@ Responsável por:
 - preservação da ordem recebida;
 - formatação textual;
 - limite de contexto;
-- preservação da origem.
+- preservação da origem;
+- montagem do contrato de prompt.
 
 `RagContext.text` contém somente o texto que respeita o orçamento configurado.
 `RagSource.content` preserva o conteúdo original completo do artigo, mesmo
 quando o texto de contexto é truncado. Essa decisão facilita citações,
 auditoria e debugging.
+
+Augmentation passa a conter duas etapas:
+
+```text
+Context Assembly
+      |
+      v
+Prompt Assembly
+```
+
+O estado atual do pipeline é:
+
+```text
+Retrieval
+   |
+   v
+KnowledgeSearchMatch[]
+   |
+   v
+Chunking / Context Builder
+   |
+   v
+RagContext
+   |
+   v
+RagPromptBuilder
+   |
+   v
+RagPrompt
+   |
+   v
+Generation [futuro]
+```
 
 ## Generation
 

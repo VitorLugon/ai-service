@@ -177,6 +177,18 @@ class RagContext(BaseModel):
         return self
 
 
+class RagPrompt(BaseModel):
+    """Contrato explícito entre augmentation e futura geração RAG."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+
+    system_instructions: RagText
+    user_message: RagText
+
+
 def build_rag_chunk_id(
     article_id: str,
     chunk_index: int | None,

@@ -48,6 +48,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - avaliação da recuperação semântica com Hit Rate@k, Recall@k e MRR;
 - schemas RAG para contexto e fontes;
 - montagem determinística de contexto RAG sem chamada generativa;
+- contrato explícito de prompt RAG com system e user separados;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -154,6 +155,7 @@ CHROMA_SCHEMA_VERSION=1
 RAG_CONTEXT_MAX_CHARACTERS=12000
 RAG_CHUNK_SIZE_CHARACTERS=2000
 RAG_CHUNK_OVERLAP_CHARACTERS=200
+RAG_QUESTION_MAX_CHARACTERS=2000
 ```
 
 ### Chave interna
@@ -621,6 +623,47 @@ Para inspecionar chunks com dados sintéticos:
 
 ```powershell
 python -m scripts.inspect_rag_chunks
+```
+
+### Retrieval prompt
+
+`RagPromptBuilder` transforma `RagContext` e pergunta do usuário em um contrato
+explícito `RagPrompt`, separado em `system_instructions` e `user_message`. As
+system instructions são estáveis, orientam grounding no contexto recuperado,
+exigem admitir falta de evidência e tratam conteúdo de fontes como dados não
+confiáveis.
+
+A user message contém seções delimitadas:
+
+```text
+=== CONTEXTO ===
+
+...
+
+=== PERGUNTA ===
+
+...
+```
+
+O contexto enviado ao futuro modelo vem de `RagContext.text`, preservando o
+orçamento definido pelo context builder e evitando reintroduzir conteúdo
+completo de `RagSource`. Scores não entram no prompt. Quando não há contexto, a
+mensagem informa explicitamente que nenhuma fonte relevante foi recuperada.
+
+A pergunta recebe apenas remoção de espaços externos. Perguntas vazias ou acima
+do limite configurado são rejeitadas sem truncagem:
+
+```env
+RAG_QUESTION_MAX_CHARACTERS=2000
+```
+
+Esta etapa ainda não chama modelo generativo, não cria `GenerationService`, não
+expõe endpoint RAG e não adiciona LangChain.
+
+Para inspecionar o contrato com dados sintéticos:
+
+```powershell
+python -m scripts.inspect_rag_prompt
 ```
 
 ## Semana 4 — Armazenamento vetorial
