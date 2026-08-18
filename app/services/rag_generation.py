@@ -46,7 +46,9 @@ class ResponsesResource(Protocol):
 class ResponsesClient(Protocol):
     """Cliente com recurso de Responses API injetado no serviço."""
 
-    responses: ResponsesResource
+    @property
+    def responses(self) -> ResponsesResource:
+        """Retorna o recurso de Responses API."""
 
 
 class RagGenerationService:

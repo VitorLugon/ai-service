@@ -104,12 +104,17 @@ evitando acesso a `data/chroma` e chamadas externas.
 docs/
 ├── architecture.md
 ├── evaluation.md
-└── week-3-review.md
+├── rag-evaluation.md
+├── week-3-review.md
+├── week-4-review.md
+├── week-5-review.md
+└── decisions/
 ```
 
 `docs/evaluation.md` registra o dataset sintético, métricas, resultados reais,
 casos divergentes, ambiguidades, avaliação de recuperação semântica e próximos
-passos.
+passos. As revisões semanais registram o estado técnico ao final de cada
+marco, e `docs/decisions/` mantém as ADRs do projeto.
 
 ## Classificação
 
@@ -310,16 +315,13 @@ Filtros são representados por `KnowledgeSearchFilter`, em
 `app/schemas/knowledge.py`. O schema conhece apenas conceitos de domínio, como
 `category`, e não expõe a sintaxe `where` do Chroma para rotas ou clientes.
 
-Esta etapa não inclui:
-
-- geração de resposta baseada em documentos.
+Essa recuperação alimenta tanto o endpoint de busca quanto o endpoint RAG.
 
 ## Pipeline RAG
 
-A Semana 5 inicia o pipeline RAG pela camada de Augmentation/context assembly.
-Essa camada fica entre a recuperação semântica já existente e a futura geração
-com LLM. Ela não chama OpenAI, não acessa Chroma, não lê arquivos e não depende
-de FastAPI.
+A Semana 5 implementa o pipeline RAG mantendo Retrieval, Augmentation,
+Generation e Answer Composition como etapas separadas. A montagem de contexto
+não chama OpenAI, não acessa Chroma, não lê arquivos e não depende de FastAPI.
 
 Retrieval:
 
@@ -399,6 +401,29 @@ O texto recuperado continua sendo tratado como conteúdo dentro da seção
 `content:`. O prompt assembly adiciona instruções estáveis para que a futura
 geração trate fontes como dados não confiáveis. Delimitadores textuais ajudam a
 estrutura, mas não são uma barreira de segurança perfeita.
+
+`RagService`, em `app/services/rag_service.py`, é o orquestrador de aplicação
+do fluxo end-to-end. Ele recebe serviços por injeção e executa:
+
+```text
+KnowledgeSearchService.search()
+        |
+        v
+RagContextBuilder.build()
+        |
+        v
+RagPromptBuilder.build()
+        |
+        v
+RagGenerationService.generate()
+        |
+        v
+RagAnswerComposer.compose()
+```
+
+O serviço não instancia `AsyncOpenAI`, não lê Settings, não conhece FastAPI e
+não acessa o Chroma diretamente. Erros das camadas internas são propagados para
+os handlers HTTP já existentes.
 
 ## Grounded RAG Response
 
@@ -560,7 +585,7 @@ avaliação de retrieval.
 
 ## Prompt Assembly
 
-O Dia 3 da Semana 5 adiciona um contrato explícito para a futura geração RAG:
+O Dia 3 da Semana 5 adiciona um contrato explícito para a geração RAG:
 
 ```text
 RagContext
@@ -678,8 +703,60 @@ Generation
 ```
 
 O modelo RAG é configurado por `OPENAI_RAG_MODEL`, separado do modelo de
-classificação para permitir evolução independente. A camada ainda não expõe
-endpoint HTTP, não implementa streaming e não retorna citações formais.
+classificação para permitir evolução independente. A camada não implementa
+streaming e não retorna citações formais verificadas por claim.
+
+## API RAG
+
+O Dia 7 expõe o pipeline completo pela rota interna:
+
+```http
+POST /internal/rag/answer
+```
+
+A rota fica em `app/api/routes/rag.py`, usa a autenticação interna por
+`X-API-Key` e delega para `RagService`. Ela não calcula similaridade, não monta
+prompt manualmente, não executa avaliação e não reconstrói embeddings dos
+artigos.
+
+Os contratos Pydantic ficam em `app/schemas/rag.py`:
+
+- `RagAnswerRequest`: recebe `query`, `top_k` e `category`, remove espaços
+  externos da pergunta, rejeita campos extras, limita `top_k` entre 1 e 10 e
+  limita a pergunta a 2000 caracteres;
+- `RagAnswerResponse`: retorna `answer`, `sources` e `source_count`.
+
+A dependência `get_rag_service`, em `app/api/dependencies/rag.py`, é
+responsável por:
+
+- obter o backend de busca já inicializado no lifespan;
+- validar `OPENAI_API_KEY`;
+- criar um cliente `AsyncOpenAI` por request;
+- montar `EmbeddingService`, `KnowledgeSearchService`, `RagContextBuilder`,
+  `RagPromptBuilder`, `RagGenerationService` e `RagAnswerComposer`;
+- fechar o cliente assíncrono ao final da requisição.
+
+Durante a request, somente a query é enviada ao provedor de embeddings. O
+retrieval usa o Chroma persistente carregado no startup e os artigos já
+indexados. A geração usa OpenAI Responses API com `store=False`.
+
+Erros de provedor são convertidos para `502`, `503` ou `504` pelos handlers
+globais. Erros do armazenamento de conhecimento são convertidos para `503`.
+
+O fluxo HTTP atual é:
+
+```text
+POST /internal/rag/answer
+        |
+        v
+RagAnswerRequest
+        |
+        v
+RagService
+        |
+        v
+RagAnswerResponse
+```
 
 ## Estado Atual Da Recuperação Semântica
 
@@ -1171,3 +1248,27 @@ Funcionalidades ativas no fechamento:
 - update/delete por serviço interno;
 - comparação determinística entre memória e Chroma;
 - script de avaliação Chroma sem reindexação de artigos.
+
+## Estado Ao Final Da Semana 5
+
+O pipeline RAG está funcional de ponta a ponta:
+
+- retrieval persistente com Chroma;
+- filtro opcional por categoria;
+- montagem determinística de contexto;
+- contrato explícito de prompt;
+- geração com OpenAI Responses API;
+- resposta final com fontes controladas pela aplicação;
+- orquestração por `RagService`;
+- endpoint interno `POST /internal/rag/answer`;
+- avaliação RAG fora do caminho HTTP;
+- smoke test real controlado em `scripts/rag_end_to_end_smoke_test.py`.
+
+Ainda estão fora do escopo implementado:
+
+- streaming;
+- LangChain;
+- banco vetorial remoto;
+- reranking;
+- verificação automática de citações por claim;
+- reindexação da coleção Chroma por chunks.

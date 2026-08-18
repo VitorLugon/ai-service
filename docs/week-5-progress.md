@@ -76,17 +76,28 @@ desacoplados.
 - script real controlado;
 - baseline documentado.
 
+## Dia 7
+
+- `RagService` como orquestrador end-to-end;
+- endpoint interno `POST /internal/rag/answer`;
+- schema HTTP `RagAnswerRequest`;
+- schema HTTP `RagAnswerResponse`;
+- dependência FastAPI para montar o pipeline real;
+- reutilização do backend Chroma carregado no lifespan;
+- uma chamada de embedding por query;
+- uma chamada generativa por resposta;
+- testes com serviço falso, OpenAI falsa e Chroma temporário;
+- smoke test real controlado;
+- documentação de fechamento da Semana 5;
+- ADR do orquestrador de aplicação.
+
 ## Pendências
 
 - decidir reindexação por chunks;
-- integração RAG end-to-end;
-- endpoint RAG;
-- avaliação final;
-- revisão de segurança;
-- fechamento da Semana 5.
 - métricas de groundedness;
 - citation verification;
-- integração HTTP.
+- streaming;
+- integração com backend HelpDeskLite.
 
 ## Checklist Manual DataCamp
 

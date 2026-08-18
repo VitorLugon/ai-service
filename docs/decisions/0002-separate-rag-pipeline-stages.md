@@ -163,11 +163,8 @@ A provenance vem de `RagContext`, que representa as evidências fornecidas à
 geração. O composer não parseia marcadores como `[SOURCE n]`, não resolve IDs
 mencionados pelo modelo e não adiciona fontes fora do contexto.
 
-Ainda são responsabilidades futuras:
-
-- endpoint RAG;
-- streaming;
-- avaliação end-to-end.
+O endpoint RAG foi implementado como uma camada fina sobre `RagService`.
+Streaming continua fora do escopo desta decisão.
 
 ## Consequências Positivas
 
@@ -191,6 +188,5 @@ Ainda são responsabilidades futuras:
 
 - LangChain;
 - streaming;
-- endpoint RAG;
 - defesa completa contra prompt injection;
 - reranking.

@@ -12,6 +12,8 @@ from pydantic import (
 
 from app.schemas.tickets import TicketCategory
 
+MAX_RAG_HTTP_QUESTION_CHARACTERS = 2_000
+
 RagText = Annotated[
     str,
     StringConstraints(
@@ -248,6 +250,66 @@ class RagAnswer(BaseModel):
             )
 
         return self
+
+
+class RagAnswerRequest(BaseModel):
+    """Payload HTTP para geração de resposta RAG."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(
+        min_length=1,
+        max_length=MAX_RAG_HTTP_QUESTION_CHARACTERS,
+    )
+    top_k: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+    )
+    category: TicketCategory | None = None
+
+    @field_validator(
+        "query",
+        mode="before",
+    )
+    @classmethod
+    def normalize_query(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+
+        return value
+
+
+class RagAnswerResponse(BaseModel):
+    """Resposta HTTP do pipeline RAG end-to-end."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer: RagText
+    sources: list[RagAnswerSource]
+    source_count: int = Field(
+        ge=0,
+    )
+
+    @model_validator(mode="after")
+    def validate_source_count(self) -> "RagAnswerResponse":
+        if self.source_count != len(self.sources):
+            raise ValueError(
+                "source_count deve corresponder à quantidade de sources.",
+            )
+
+        return self
+
+    @classmethod
+    def from_answer(
+        cls,
+        answer: RagAnswer,
+    ) -> "RagAnswerResponse":
+        return cls(
+            answer=answer.answer,
+            sources=answer.sources,
+            source_count=answer.source_count,
+        )
 
 
 def build_rag_chunk_id(

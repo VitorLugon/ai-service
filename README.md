@@ -50,6 +50,8 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - montagem determinística de contexto RAG sem chamada generativa;
 - contrato explícito de prompt RAG com system e user separados;
 - geração RAG isolada com OpenAI Responses API;
+- orquestração RAG end-to-end desacoplada do FastAPI;
+- endpoint interno para resposta RAG completa;
 - resposta RAG fundamentada com fontes controladas pela aplicação;
 - avaliação RAG determinística com dataset sintético versionado;
 - cobertura mínima de testes;
@@ -102,6 +104,8 @@ A revisão técnica da Semana 3 está em
 [`docs/week-3-review.md`](docs/week-3-review.md).
 A revisão técnica da Semana 4 está em
 [`docs/week-4-review.md`](docs/week-4-review.md).
+A revisão técnica da Semana 5 está em
+[`docs/week-5-review.md`](docs/week-5-review.md).
 
 ## Requisitos
 
@@ -262,6 +266,7 @@ http://127.0.0.1:8000/redoc
 | POST | `/internal/tickets/classify` | API Key | Classifica um chamado usando IA |
 | POST | `/internal/knowledge/search` | API Key | Busca artigos da base de conhecimento por similaridade semântica |
 | POST | `/internal/knowledge/search/batch` | API Key | Busca semântica em lote na base de conhecimento |
+| POST | `/internal/rag/answer` | API Key | Gera resposta RAG usando artigos recuperados |
 
 ## Autenticação interna
 
@@ -338,7 +343,8 @@ SDK para os erros internos da aplicação.
 
 Esses comandos podem consumir créditos e não fazem parte do `pytest`. Os testes
 automatizados usam cliente simulado e matemática vetorial local; eles não
-acessam a OpenAI. Não existe RAG.
+acessam a OpenAI. O pipeline RAG reutiliza esses embeddings para recuperar
+fontes antes da geração.
 
 ## Base de conhecimento
 
@@ -368,8 +374,8 @@ artigo no arquivo, mas não entra no texto usado para embeddings. A representaç
 textual estável usa título, categoria, palavras-chave e conteúdo, nessa ordem.
 
 Os embeddings persistentes dos artigos são criados somente pelo script explícito
-de indexação no Chroma. O endpoint de busca exige essa indexação prévia e não
-recalcula embeddings dos artigos por requisição. Ainda não existe resposta RAG.
+de indexação no Chroma. Os endpoints de busca e resposta RAG exigem essa
+indexação prévia e não recalculam embeddings dos artigos por requisição.
 
 ## Recuperação semântica
 
@@ -597,8 +603,8 @@ no orçamento. Se a primeira fonte for maior que o limite, o texto é truncado c
 marcador explícito; fontes posteriores que não couberem são omitidas por
 inteiro.
 
-Esta etapa não chama LLM generativo, não cria `GenerationService`, não expõe
-endpoint RAG, não adiciona streaming e não adiciona LangChain ao projeto.
+Esse componente isolado não chama LLM generativo, não acessa Chroma, não
+adiciona streaming e não adiciona LangChain ao projeto.
 
 Para inspecionar a montagem de contexto com dados sintéticos:
 
@@ -664,8 +670,8 @@ do limite configurado são rejeitadas sem truncagem:
 RAG_QUESTION_MAX_CHARACTERS=2000
 ```
 
-Esta etapa ainda não chama modelo generativo, não cria `GenerationService`, não
-expõe endpoint RAG e não adiciona LangChain.
+Esse componente isolado não chama modelo generativo, não acessa Chroma, não
+expõe endpoint próprio e não adiciona LangChain.
 
 Para inspecionar o contrato com dados sintéticos:
 
@@ -786,6 +792,95 @@ python -m scripts.evaluate_rag --max-cases 3
 
 Esse comando usa a API real da OpenAI, consulta a coleção Chroma persistente e
 pode consumir créditos. Use `--max-cases` para controlar custo.
+
+### RAG end-to-end
+
+O Dia 7 adiciona `RagService`, o orquestrador de aplicação que une as etapas já
+existentes sem misturar responsabilidades:
+
+```text
+question
+   |
+   v
+KnowledgeSearchService
+   |
+   v
+RagContextBuilder
+   |
+   v
+RagPromptBuilder
+   |
+   v
+RagGenerationService
+   |
+   v
+RagAnswerComposer
+   |
+   v
+RagAnswer
+```
+
+`RagService` não conhece FastAPI, Settings, `.env`, Chroma concreto nem
+`AsyncOpenAI`. A rota HTTP monta as dependências, reutiliza o backend Chroma
+inicializado no lifespan, cria `EmbeddingService` e `RagGenerationService` com
+o mesmo cliente assíncrono da OpenAI e delega a execução para o serviço.
+
+Endpoint:
+
+```http
+POST /internal/rag/answer
+```
+
+Requisição:
+
+```json
+{
+  "query": "Redefini minha senha, mas ainda não consigo acessar minha conta. O que devo fazer?",
+  "top_k": 3,
+  "category": "acesso_e_autenticacao"
+}
+```
+
+Contrato:
+
+- `query`: pergunta normalizada com remoção de espaços externos, não vazia e
+  com limite de 2000 caracteres;
+- `top_k`: inteiro opcional entre 1 e 10, com padrão 3;
+- `category`: categoria opcional para restringir a recuperação;
+- campos extras são rejeitados.
+
+Resposta:
+
+```json
+{
+  "answer": "Texto gerado pelo modelo com base no contexto recuperado.",
+  "sources": [
+    {
+      "source_id": "recover-account-access",
+      "article_id": "recover-account-access",
+      "chunk_id": null,
+      "title": "Como recuperar o acesso à conta",
+      "category": "acesso_e_autenticacao",
+      "rank": 1
+    }
+  ],
+  "source_count": 1
+}
+```
+
+Durante cada request, somente a query gera embedding. Os artigos já precisam
+estar indexados no Chroma. O endpoint não executa avaliação, não reindexa
+documentos, não expõe scores vetoriais, não faz streaming e não verifica
+citações por claim.
+
+Para executar uma pergunta RAG real no terminal:
+
+```powershell
+python -m scripts.rag_end_to_end_smoke_test
+```
+
+Esse comando usa OpenAI real e Chroma persistente, pode consumir créditos e não
+imprime segredos, embeddings nem documentos completos.
 
 ## Semana 4 — Armazenamento vetorial
 
@@ -1388,6 +1483,10 @@ Os testes verificam:
 - schemas e composição de resposta RAG fundamentada;
 - garantia de que fontes da resposta RAG vêm do contexto, não do texto do
   modelo.
+- orquestração do `RagService`;
+- endpoint RAG com autenticação, validação, filtro e erros padronizados;
+- fluxo HTTP RAG usando Chroma temporário e cliente OpenAI falso;
+- garantia de que a request RAG embute somente a query e não reindexa artigos.
 
 Os testes:
 
@@ -1447,10 +1546,11 @@ Caso uma chave seja exibida em uma captura, log ou commit, ela deve ser substitu
 
 ## Próximas funcionalidades
 
-- geração de resposta RAG com artigos recuperados;
-- endpoint HTTP para resposta RAG completa;
 - integração com o backend do HelpDeskLite;
 - logs estruturados;
 - métricas e observabilidade;
 - política de repetição e circuit breaker;
+- streaming de respostas RAG;
+- verificação de citações por claim;
+- reindexação opcional por chunks;
 - deploy do serviço.

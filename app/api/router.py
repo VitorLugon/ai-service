@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes.health import router as health_router
 from app.api.routes.internal import router as internal_router
 from app.api.routes.knowledge import router as knowledge_router
+from app.api.routes.rag import router as rag_router
 from app.api.routes.readiness import router as readiness_router
 from app.api.routes.tickets import router as tickets_router
 
@@ -13,3 +14,4 @@ api_router.include_router(readiness_router)
 api_router.include_router(internal_router)
 api_router.include_router(tickets_router)
 api_router.include_router(knowledge_router)
+api_router.include_router(rag_router)
