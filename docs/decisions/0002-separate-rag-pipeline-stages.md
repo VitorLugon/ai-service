@@ -52,6 +52,19 @@ Answer Composition
 RagAnswer
 ```
 
+O pipeline de produção termina em `RagAnswer`. A avaliação é uma preocupação
+separada:
+
+```text
+Production pipeline output
+    |
+    v
+RagEvaluator
+```
+
+`RagEvaluator` não fica dentro dos serviços de produção e não participa do
+caminho de request da API.
+
 ## Retrieval
 
 Responsável por:

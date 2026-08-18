@@ -294,3 +294,134 @@ Os testes determinísticos com vetores sintéticos mostram equivalência entre o
 tolerância e métricas agregadas. A avaliação real com embeddings da OpenAI
 confirmou o mesmo resultado agregado do baseline em memória para 18 consultas e
 12 artigos indexados.
+
+## Avaliação RAG
+
+### Objetivo
+
+A avaliação RAG mede o pipeline completo depois da recuperação:
+
+```text
+Question
+   |
+   v
+Retrieval
+   |
+   v
+RagContext
+   |
+   v
+RagPrompt
+   |
+   v
+Generation
+   |
+   v
+RagAnswer
+   |
+   v
+RagEvaluator
+```
+
+Ela separa métricas de retrieval, sources, cobertura simples da resposta e
+comportamento de recusa quando não há evidência.
+
+### Dataset
+
+O dataset está em:
+
+```text
+evaluation/rag_cases.json
+```
+
+Composição:
+
+- 16 casos sintéticos;
+- 12 casos com resposta esperada;
+- 4 casos sem evidência;
+- 2 casos com múltiplas fontes relevantes.
+
+### Métricas
+
+- retrieval hit rate;
+- source hit rate;
+- mean answer keyword coverage;
+- correct refusal rate;
+- false refusal rate;
+- unsupported answer rate;
+- Hit Rate@k, Recall@k e MRR para os casos com resposta esperada.
+
+Essas métricas são determinísticas e não usam LLM-as-a-judge. Keyword coverage
+mede apenas presença de termos esperados, não correção factual completa. A
+detecção de recusa por falta de evidência é heurística.
+
+### Baseline offline
+
+Execução determinística com fake pipeline, sem OpenAI e sem Chroma real:
+
+```powershell
+python -m scripts.evaluate_rag_offline
+```
+
+Resultado registrado em 2026-08-18:
+
+| Métrica | Resultado |
+|---|---:|
+| Casos | 16 |
+| Casos com resposta | 12 |
+| Casos sem evidência | 4 |
+| Retrieval hit rate | 1,0000 |
+| Source hit rate | 1,0000 |
+| Mean keyword coverage | 1,0000 |
+| Correct refusal rate | 1,0000 |
+| False refusal rate | 0,0000 |
+| Unsupported answer rate | 0,0000 |
+
+Esse baseline valida a infraestrutura de avaliação, não mede qualidade real de
+modelo.
+
+### Baseline real parcial
+
+Execução real parcial realizada em 2026-08-18 com:
+
+- generation model: `gpt-5-mini`;
+- embedding model: `text-embedding-3-small`;
+- vector store: Chroma persistente;
+- collection: `helpdesklite-knowledge-v1`;
+- artigos indexados: 12;
+- casos executados: 3 de 16.
+
+Comando:
+
+```powershell
+python -m scripts.evaluate_rag --max-cases 3
+```
+
+Resultado:
+
+| Métrica | Resultado |
+|---|---:|
+| Casos executados | 3 |
+| Casos com resposta | 3 |
+| Casos sem evidência | 0 |
+| Retrieval hit rate | 1,0000 |
+| Source hit rate | 1,0000 |
+| Mean keyword coverage | 0,8889 |
+| Correct refusal rate | N/A |
+| False refusal rate | 0,0000 |
+| Unsupported answer rate | N/A |
+
+Casos executados:
+
+- `rag-recover-access`;
+- `rag-configure-mfa`;
+- `rag-empty-pdf`.
+
+Essa amostra não substitui a avaliação completa do dataset. Ela confirma o
+wiring real do pipeline RAG com limite de custo explícito.
+
+Documentação detalhada:
+
+```text
+docs/rag-evaluation.md
+```

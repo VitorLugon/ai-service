@@ -457,6 +457,57 @@ As fontes retornadas significam evidências fornecidas à geração. Elas ainda 
 representam citações verificadas por claim, e a aplicação não tenta resolver IDs
 ou marcadores como `[SOURCE 999]` presentes no texto gerado pelo modelo.
 
+## RAG Evaluation
+
+O Dia 6 adiciona avaliação RAG fora do caminho de request da API. O evaluator
+mede o resultado do pipeline, mas não participa da execução de produção.
+
+```text
+Question
+   |
+   v
+RAG Pipeline
+   |
+   v
+RagAnswer
+   |
+   v
+RagEvaluator
+   +--> Retrieval metrics
+   +--> Source metrics
+   +--> Answer coverage
+   +--> Refusal behavior
+```
+
+O dataset versionado fica em `evaluation/rag_cases.json` e contém casos com
+resposta esperada, casos sem evidência e casos com múltiplas fontes relevantes.
+O carregador valida IDs únicos, perguntas únicas, consistência entre
+comportamento esperado e artigos relevantes, keywords esperadas e referências a
+artigos existentes em `knowledge/articles.json`.
+
+`RagEvaluator` depende de um pipeline abstrato que retorna os IDs recuperados e
+um `RagAnswer`. Em testes e no script offline, esse pipeline é fake e
+determinístico. No script real, o wiring usa `KnowledgeSearchService`,
+`RagContextBuilder`, `RagPromptBuilder`, `RagGenerationService` e
+`RagAnswerComposer`.
+
+As métricas determinísticas são:
+
+- `retrieval_hit`: ao menos um artigo relevante apareceu no retrieval em casos
+  com resposta esperada;
+- `source_hit`: ao menos um artigo relevante apareceu em `RagAnswer.sources`;
+- `answer_keyword_coverage`: fração de keywords esperadas encontradas na
+  resposta;
+- `correct_refusal`: caso sem evidência respondeu como falta de informação;
+- `false_refusal`: caso com resposta esperada recusou por falta de informação;
+- `unsupported_answer`: caso sem evidência e sem sources retornou resposta
+  substantiva.
+
+Para os casos com resposta esperada, o relatório também inclui métricas de
+recuperação em k e MRR com a mesma semântica da avaliação de retrieval. A
+detecção de recusa é heurística e a cobertura de keywords não mede correção
+factual profunda, entailment ou citações verificadas por claim.
+
 ## Chunking Do Contexto RAG
 
 O Dia 2 da Semana 5 adiciona preparação determinística de chunks para a camada

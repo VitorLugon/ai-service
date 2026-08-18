@@ -51,6 +51,7 @@ O serviço será inicialmente integrado ao HelpDeskLite e poderá ser reutilizad
 - contrato explícito de prompt RAG com system e user separados;
 - geração RAG isolada com OpenAI Responses API;
 - resposta RAG fundamentada com fontes controladas pela aplicação;
+- avaliação RAG determinística com dataset sintético versionado;
 - cobertura mínima de testes;
 - lint e formatação com Ruff;
 - análise estática com mypy;
@@ -744,6 +745,47 @@ Para inspecionar a composição sem OpenAI, Chroma ou segredos:
 ```powershell
 python -m scripts.inspect_rag_answer
 ```
+
+### Avaliação RAG
+
+O projeto possui avaliação separada para retrieval, sources e geração RAG. O
+dataset sintético fica em:
+
+```text
+evaluation/rag_cases.json
+```
+
+As métricas determinísticas incluem:
+
+- retrieval hit rate;
+- source hit rate;
+- answer keyword coverage;
+- correct refusal rate;
+- false refusal rate;
+- unsupported answer rate;
+- Hit Rate@k, Recall@k e MRR para os casos com resposta esperada.
+
+Essas métricas não usam LLM-as-a-judge. `answer keyword coverage` mede apenas
+presença de termos esperados, não correção factual completa. A detecção de
+recusa por falta de evidência é heurística. `source_hit` confirma que uma fonte
+relevante chegou ao contrato final, mas não prova que cada afirmação da resposta
+foi sustentada por ela.
+
+Para validar a infraestrutura sem OpenAI e sem Chroma real:
+
+```powershell
+python -m scripts.evaluate_rag_offline
+```
+
+Para executar uma avaliação real parcial, com OpenAI e Chroma persistente já
+configurados:
+
+```powershell
+python -m scripts.evaluate_rag --max-cases 3
+```
+
+Esse comando usa a API real da OpenAI, consulta a coleção Chroma persistente e
+pode consumir créditos. Use `--max-cases` para controlar custo.
 
 ## Semana 4 — Armazenamento vetorial
 

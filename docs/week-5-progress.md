@@ -62,15 +62,30 @@ desacoplados.
 - teste de fonte removida pelo orçamento;
 - pipeline Context -> Prompt -> Generation -> Answer.
 
+## Dia 6
+
+- dataset de avaliação RAG;
+- schemas de evaluation;
+- `RagEvaluator`;
+- retrieval hit;
+- source hit;
+- keyword coverage;
+- refusal metrics;
+- unsupported answer;
+- avaliação offline;
+- script real controlado;
+- baseline documentado.
+
 ## Pendências
 
 - decidir reindexação por chunks;
+- integração RAG end-to-end;
 - endpoint RAG;
-- avaliação RAG;
+- avaliação final;
+- revisão de segurança;
+- fechamento da Semana 5.
 - métricas de groundedness;
 - citation verification;
-- integração end-to-end real;
-- avaliação de geração;
 - integração HTTP.
 
 ## Checklist Manual DataCamp

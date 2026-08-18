@@ -1,0 +1,195 @@
+[
+  {
+    "id": "rag-recover-access",
+    "question": "Como recupero acesso à minha conta quando não consigo entrar?",
+    "relevant_article_ids": [
+      "recover-account-access"
+    ],
+    "expected_answer_keywords": [
+      "senha",
+      "login",
+      "e-mail"
+    ],
+    "expected_behavior": "answer",
+    "notes": "Caso positivo de recuperação de acesso."
+  },
+  {
+    "id": "rag-configure-mfa",
+    "question": "Onde ativo a autenticação em duas etapas com aplicativo autenticador?",
+    "relevant_article_ids": [
+      "configure-multi-factor-authentication"
+    ],
+    "expected_answer_keywords": [
+      "segurança",
+      "aplicativo autenticador",
+      "código"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-empty-pdf",
+    "question": "O PDF exportado veio vazio. O que devo verificar?",
+    "relevant_article_ids": [
+      "resolve-empty-exported-pdf"
+    ],
+    "expected_answer_keywords": [
+      "filtros",
+      "período",
+      "navegador"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-mobile-notification-crash",
+    "question": "O aplicativo fecha quando abro notificações. Como agir?",
+    "relevant_article_ids": [
+      "resolve-mobile-notification-crash"
+    ],
+    "expected_answer_keywords": [
+      "atualize",
+      "reinicie",
+      "cache"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-payment-suspended",
+    "question": "O pagamento foi aprovado, mas a conta segue suspensa.",
+    "relevant_article_ids": [
+      "payment-approved-account-suspended"
+    ],
+    "expected_answer_keywords": [
+      "fatura",
+      "comprovante",
+      "reativação"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-incorrect-plan-invoice",
+    "question": "A fatura veio com plano diferente do contratado.",
+    "relevant_article_ids": [
+      "incorrect-plan-on-invoice"
+    ],
+    "expected_answer_keywords": [
+      "plano",
+      "renovação",
+      "financeira"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-export-users",
+    "question": "Como exporto a lista de usuários para CSV?",
+    "relevant_article_ids": [
+      "export-users-to-csv"
+    ],
+    "expected_answer_keywords": [
+      "administração",
+      "usuários",
+      "csv"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-report-filters",
+    "question": "Posso combinar período, departamento e status em relatórios?",
+    "relevant_article_ids": [
+      "combine-report-filters"
+    ],
+    "expected_answer_keywords": [
+      "período",
+      "departamento",
+      "status"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-custom-registration-field",
+    "question": "Quero pedir um novo campo obrigatório no cadastro.",
+    "relevant_article_ids": [
+      "request-custom-registration-field"
+    ],
+    "expected_answer_keywords": [
+      "nome",
+      "finalidade",
+      "obrigatório"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-dashboard-widget",
+    "question": "Como solicito um novo indicador para o dashboard?",
+    "relevant_article_ids": [
+      "request-dashboard-widget"
+    ],
+    "expected_answer_keywords": [
+      "métrica",
+      "dados",
+      "cálculo"
+    ],
+    "expected_behavior": "answer"
+  },
+  {
+    "id": "rag-access-and-mfa",
+    "question": "Preciso recuperar acesso e depois revisar a autenticação em duas etapas.",
+    "relevant_article_ids": [
+      "recover-account-access",
+      "configure-multi-factor-authentication"
+    ],
+    "expected_answer_keywords": [
+      "senha",
+      "segurança",
+      "autenticação"
+    ],
+    "expected_behavior": "answer",
+    "notes": "Caso com múltiplas fontes relevantes."
+  },
+  {
+    "id": "rag-billing-suspended-and-plan",
+    "question": "A conta está suspensa após pagamento e a fatura mostra plano incorreto.",
+    "relevant_article_ids": [
+      "payment-approved-account-suspended",
+      "incorrect-plan-on-invoice"
+    ],
+    "expected_answer_keywords": [
+      "pagamento",
+      "fatura",
+      "plano"
+    ],
+    "expected_behavior": "answer",
+    "notes": "Caso com múltiplas fontes relevantes."
+  },
+  {
+    "id": "rag-no-evidence-vacation-policy",
+    "question": "Qual é a política de férias dos funcionários?",
+    "relevant_article_ids": [],
+    "expected_answer_keywords": [],
+    "expected_behavior": "insufficient_evidence",
+    "notes": "Assunto fora da base sintética."
+  },
+  {
+    "id": "rag-no-evidence-weather",
+    "question": "Vai chover amanhã na minha cidade?",
+    "relevant_article_ids": [],
+    "expected_answer_keywords": [],
+    "expected_behavior": "insufficient_evidence",
+    "notes": "Pergunta externa sem relação com suporte do produto."
+  },
+  {
+    "id": "rag-no-evidence-office-wifi",
+    "question": "Qual é a senha do Wi-Fi do escritório?",
+    "relevant_article_ids": [],
+    "expected_answer_keywords": [],
+    "expected_behavior": "insufficient_evidence",
+    "notes": "Informação operacional não presente na base."
+  },
+  {
+    "id": "rag-no-evidence-payroll",
+    "question": "Quando será depositada a folha de pagamento?",
+    "relevant_article_ids": [],
+    "expected_answer_keywords": [],
+    "expected_behavior": "insufficient_evidence",
+    "notes": "Assunto de RH fora da base de conhecimento."
+  }
+]
